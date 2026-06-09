@@ -1,0 +1,14 @@
+{
+	"name": "node-and-express-login-app",
+	"version": "1.0.0",
+	"description": "Simple Node and Express login and employee demo app",
+	"main": "app.js",
+	"scripts": {
+		"start": "node app.js"
+	},
+	"dependencies": {
+		"bcryptjs": "^2.4.3",
+		"ejs": "^3.1.10",
+		"express": "^4.19.2"
+	}
+}

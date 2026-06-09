@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">   
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+</head>
+<body>
+    <a href="/">logout</a>
+    <h2>Welcome to the Employee Management Dashboard,<%= typeof emailID !== 'undefined' ? ' ' + emailID : '' %></h2>
+
+    <section style="margin-top:20px;">
+        <h3>Employee Tools</h3>
+        <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;">
+            <a href="/api/employees" style="padding:10px 14px;border-radius:8px;background:#0ea5e9;color:#00111f;text-decoration:none;font-weight:700;">View Employees</a>
+            <a href="/api/findEmployeeByIdUsingQuery" style="padding:10px 14px;border-radius:8px;background:#94a3b8;color:#041025;text-decoration:none;font-weight:700;">Query Search</a>
+            <a href="/api/findEmployeeByIdUsingPath" style="padding:10px 14px;border-radius:8px;background:#94a3b8;color:#041025;text-decoration:none;font-weight:700;">Path Search</a>
+            <a href="/api/addEmployee" style="padding:10px 14px;border-radius:8px;background:#38bdf8;color:#00111f;text-decoration:none;font-weight:700;">Add Employee</a>
+            <a href="/api/updateEmployee" style="padding:10px 14px;border-radius:8px;background:#38bdf8;color:#00111f;text-decoration:none;font-weight:700;">Update Employee</a>
+            <a href="/api/deleteEmployee" style="padding:10px 14px;border-radius:8px;background:#f87171;color:#00111f;text-decoration:none;font-weight:700;">Delete Employee</a>
+        </div>
+    </section>
+</body>
