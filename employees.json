@@ -1,14 +1,23 @@
 [
 	{
 		"id": 1,
-		"name": "John",
-		"age": 30,
-		"position": "Software Engineer"
+		"name": "Doe, John",
+		"designation": "Software Engineer",
+		"email": "john.doe@example.com",
+		"contact": "123-456-7890",
+		"department": "Engineering",
+		"joiningDate": "2020-01-15",
+		"location": "New York"
 	},
 	{
 		"id": 2,
-		"name": "Jane",
-		"age": 28,
-		"position": "Product Manager"
+		"name": "Smith, Jane",
+		"designation": "Product Manager",
+		"email": "jane.smith@example.com",
+		"contact": "987-654-3210",
+		"department": "Marketing",
+		"joiningDate": "2020-02-01",
+		"location": "Los Angeles"
 	}
 ]
+

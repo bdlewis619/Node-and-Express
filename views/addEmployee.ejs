@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Employee</title>
+</head>
+<body>
+    <h1>Add New Employee</h1>
+    <% if (typeof msg !== 'undefined' && msg) { %>
+        <p><%= msg %></p>
+    <% } %>
+
+    <form action="/api/addEmployee" method="POST">
+        <label for="name">Name:</label><br>
+        <input type="text" id="name" name="name" required><br><br>
+
+        <label for="email">Email:</label><br>
+        <input type="email" id="email" name="email" required><br><br>
+
+        <label for="designation">Designation:</label><br>
+        <input type="text" id="designation" name="designation" required><br><br>
+
+        <label for="contact">Contact:</label><br>
+        <input type="text" id="contact" name="contact" required><br><br>
+
+        <label for="department">Department:</label><br>
+        <input type="text" id="department" name="department"><br><br>
+
+        <label for="joiningDate">Joining Date:</label><br>
+        <input type="date" id="joiningDate" name="joiningDate"><br><br>
+
+        <label for="location">Location:</label><br>
+        <input type="text" id="location" name="location"><br><br>
+
+        <button type="submit">Add Employee</button>
+    </form>
+
+    <% if (typeof employee !== 'undefined' && employee) { %>
+        <h2>Created Employee</h2>
+        <pre><%= JSON.stringify(employee, null, 2) %></pre>
+    <% } %>
+</body>
+</html>

@@ -16,8 +16,8 @@ const loginFilePath = path.join(__dirname, 'logins.json');
 const ADMIN_CODE = process.env.ADMIN_CODE || 'letmein123';
 
 const defaultEmployees = [
-    { id: 1, name: 'John', age: 30, position: 'Software Engineer' },
-    { id: 2, name: 'Jane', age: 28, position: 'Product Manager' }
+    { id: 1, name: 'Doe, John', designation: 'Software Engineer', email: 'john.doe@example.com', contact: '123-456-7890', department: 'Engineering', joiningDate: '2020-01-15', location: 'New York' },
+    { id: 2, name: 'Smith, Jane', designation: 'Product Manager', email: 'jane.smith@example.com', contact: '987-654-3210', department: 'Marketing', joiningDate: '2020-02-01', location: 'Los Angeles' }
 ];
 
 function readJsonArray(filePath, fallbackValue) {
@@ -38,33 +38,20 @@ function writeJsonArray(filePath, value) {
     fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
 }
 
-//JavaScript object in literal format
-
-// let employee1 = {
-//     id: 1,
-//     name: 'John',
-//     age: 30,
-//     position: 'Software Engineer'
-// };
-
-// let employee2 = {
-//     id: 2,
-//     name: 'Jane',
-//     age: 28,
-//     position: 'Product Manager'
-// };
-
-// let employees = [employee1, employee2];
-
 // http://localhost:3000/
 app.get('/', (req, res) => {
     res.render("login");
 });
 
-// http://localhost:3000/signUpPage
+// http://localhost:3000/signUp
+app.get("/signUp", (req, res) => {
+    let msg = "";
+    res.render("signUp", { msg });
+});
+
+// Backward-compatible alias for the old signup page route
 app.get("/signUpPage", (req, res) => {
-    let msg="";
-    res.render("signUp",{msg});
+    res.redirect("/signUp");
 });
 
 // http://localhost:3000/signIn
@@ -96,7 +83,15 @@ app.post("/signIn", (req, res) => {
             }
         }
         msg = "Login successful. Welcome, " + emailID + "!";
-        res.render("dashboard",{msg, emailID});
+        const employees = readJsonArray(employeeFilePath, defaultEmployees);
+        res.render("dashboard", {
+            msg,
+            emailID,
+            employees: sortEmployees(employees, 'id', 'asc'),
+            currentSort: 'id',
+            currentOrder: 'asc',
+            filters: { search: '', designation: '', department: '', location: '' }
+        });
     } else {
         msg = "Invalid email ID or password.";
         res.render("login",{msg});
@@ -139,12 +134,6 @@ app.post("/signUp", (req, res) => {
     res.render('login', { msg });
 });
 
-// http://localhost:3000/api/employees
-app.get('/api/employees', (req, res) => {
-    const employees = readJsonArray(employeeFilePath, defaultEmployees);
-    res.json(employees);
-});
-
 // search employee by id with query parameter
 // http://localhost:3000/api/findEmployeeByIdUsingQuery?id=1
 app.get('/api/findEmployeeByIdUsingQuery', (req, res) => {
@@ -170,6 +159,111 @@ app.get('/api/findEmployeeByIdUsingPath/:id', (req, res) => {
         res.status(404).json({ message: 'Employee not found' });
     }
 });
+
+// http://localhost:3000/api/addEmployee
+app.get('/api/addEmployee', (req, res) => {
+    let msg = '';
+    res.render('addEmployee', { msg });
+});
+
+// http://localhost:3000/api/addEmployee
+app.post('/api/addEmployee', (req, res) => {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const newEmployee = {
+        id: employees.length > 0 ? Math.max(...employees.map(emp => emp.id)) + 1 : 1,
+        name: req.body.name || 'New Employee',
+        designation: req.body.designation || 'Unknown',
+        email: req.body.email || 'Unknown',
+        contact: req.body.contact || 'Unknown',
+        department: req.body.department || 'Unknown',
+        joiningDate: req.body.joiningDate || 'Unknown',
+        location: req.body.location || 'Unknown'
+    };
+    employees.push(newEmployee);
+    writeJsonArray(employeeFilePath, employees);
+    res.render('addEmployee', {
+        msg: `Employee added successfully: ${newEmployee.name}`,
+        employee: newEmployee
+    });
+});
+
+app.get('/api/dashboard', (req, res) => {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const filters = {
+        search: req.query.search || '',
+        designation: req.query.designation || '',
+        department: req.query.department || '',
+        location: req.query.location || ''
+    };
+    const sortKey = req.query.sort || 'id';
+    const order = req.query.order || 'asc';
+    const filteredEmployees = matchEmployeeSegments(employees, filters);
+    const sortedEmployees = sortEmployees(filteredEmployees, sortKey, order);
+    
+    res.render('dashboard', {
+        employees: sortedEmployees,
+        currentSort: sortKey,
+        currentOrder: order,
+        filters
+    });
+});
+ 
+function sortEmployees(employees, sortKey = 'id', order = 'asc') {
+    const sortedEmployees = [...employees];
+
+    sortedEmployees.sort((a, b) => {
+        const firstValue = a[sortKey];
+        const secondValue = b[sortKey];
+
+        if (typeof firstValue === 'number' && typeof secondValue === 'number') {
+            return order === 'desc' ? secondValue - firstValue : firstValue - secondValue;
+        }
+
+        const firstText = String(firstValue ?? '').toLowerCase();
+        const secondText = String(secondValue ?? '').toLowerCase();
+
+        if (firstText < secondText) {
+            return order === 'desc' ? 1 : -1;
+        }
+
+        if (firstText > secondText) {
+            return order === 'desc' ? -1 : 1;
+        }
+
+        return 0;
+    });
+
+    return sortedEmployees;
+}
+
+function matchEmployeeSegments(employees, filters = {}) {
+    const searchTerm = String(filters.search || '').trim().toLowerCase();
+    const designationTerm = String(filters.designation || '').trim().toLowerCase();
+    const departmentTerm = String(filters.department || '').trim().toLowerCase();
+    const locationTerm = String(filters.location || '').trim().toLowerCase();
+
+    return employees.filter(employee => {
+        const name = String(employee.name || '').toLowerCase();
+        const designation = String(employee.designation || '').toLowerCase();
+        const department = String(employee.department || '').toLowerCase();
+        const location = String(employee.location || '').toLowerCase();
+        const email = String(employee.email || '').toLowerCase();
+
+        const searchMatches =
+            !searchTerm ||
+            name.includes(searchTerm) ||
+            designation.includes(searchTerm) ||
+            department.includes(searchTerm) ||
+            location.includes(searchTerm) ||
+            email.includes(searchTerm);
+
+        const designationMatches = !designationTerm || designation.includes(designationTerm);
+        const departmentMatches = !departmentTerm || department.includes(departmentTerm);
+        const locationMatches = !locationTerm || location.includes(locationTerm);
+
+        return searchMatches && designationMatches && departmentMatches && locationMatches;
+    });
+}
 
 app.listen(3000, () => {
     console.log('Server is running on port 3000');

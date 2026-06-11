@@ -1,23 +1,188 @@
 <!DOCTYPE html>
-<html lang="en">   
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f4f7fb;
+            color: #0f172a;
+        }
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .logout {
+            text-decoration: none;
+            color: #ffffff;
+            background: #dc2626;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-weight: 700;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            margin-bottom: 24px;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .actions a {
+            padding: 10px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            color: #00111f;
+        }
+        .table-wrap {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1100px;
+            background: #ffffff;
+        }
+        th, td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+            white-space: nowrap;
+        }
+        th {
+            background: #0f172a;
+            color: #ffffff;
+        }
+        th a {
+            color: inherit;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .filters input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+        }
+        .filters button {
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 8px;
+            background: #0ea5e9;
+            color: #ffffff;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .empty {
+            padding: 18px;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+        }
+    </style>
 </head>
 <body>
-    <a href="/">logout</a>
-    <h2>Welcome to the Employee Management Dashboard,<%= typeof emailID !== 'undefined' ? ' ' + emailID : '' %></h2>
-
-    <section style="margin-top:20px;">
-        <h3>Employee Tools</h3>
-        <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;">
-            <a href="/api/employees" style="padding:10px 14px;border-radius:8px;background:#0ea5e9;color:#00111f;text-decoration:none;font-weight:700;">View Employees</a>
-            <a href="/api/findEmployeeByIdUsingQuery" style="padding:10px 14px;border-radius:8px;background:#94a3b8;color:#041025;text-decoration:none;font-weight:700;">Query Search</a>
-            <a href="/api/findEmployeeByIdUsingPath" style="padding:10px 14px;border-radius:8px;background:#94a3b8;color:#041025;text-decoration:none;font-weight:700;">Path Search</a>
-            <a href="/api/addEmployee" style="padding:10px 14px;border-radius:8px;background:#38bdf8;color:#00111f;text-decoration:none;font-weight:700;">Add Employee</a>
-            <a href="/api/updateEmployee" style="padding:10px 14px;border-radius:8px;background:#38bdf8;color:#00111f;text-decoration:none;font-weight:700;">Update Employee</a>
-            <a href="/api/deleteEmployee" style="padding:10px 14px;border-radius:8px;background:#f87171;color:#00111f;text-decoration:none;font-weight:700;">Delete Employee</a>
+    <div class="page">
+        <div class="topbar">
+            <h2 style="margin:0;">Welcome to the Employee Management Dashboard<%= typeof emailID !== 'undefined' ? ', ' + emailID : '' %></h2>
+            <a class="logout" href="/">Logout</a>
         </div>
-    </section>
+
+        <section class="card">
+            <h3 style="margin-top:0;">Employee Tools</h3>
+            <div class="actions">
+                <a href="/api/findEmployeeByIdUsingQuery" style="background:#94a3b8;">Query Search</a>
+                <a href="/api/findEmployeeByIdUsingPath" style="background:#94a3b8;">Path Search</a>
+                <a href="/api/addEmployee" style="background:#38bdf8;">Add Employee</a>
+                <a href="/api/updateEmployee" style="background:#38bdf8;">Update Employee</a>
+                <a href="/api/deleteEmployee" style="background:#f87171;">Delete Employee</a>
+            </div>
+        </section>
+
+        <section class="card">
+            <h3 style="margin-top:0;">Employee Table</h3>
+
+            <% const safeCurrentSort = typeof currentSort !== 'undefined' ? currentSort : 'id'; %>
+            <% const safeCurrentOrder = typeof currentOrder !== 'undefined' ? currentOrder : 'asc'; %>
+            <% const safeFilters = typeof filters !== 'undefined' ? filters : { search: '', designation: '', department: '', location: '' }; %>
+            <% const searchValue = safeFilters.search || ''; %>
+            <% const designationValue = safeFilters.designation || ''; %>
+            <% const departmentValue = safeFilters.department || ''; %>
+            <% const locationValue = safeFilters.location || ''; %>
+            <% const filterQuery = `search=${encodeURIComponent(searchValue || '')}&designation=${encodeURIComponent(designationValue || '')}&department=${encodeURIComponent(departmentValue || '')}&location=${encodeURIComponent(locationValue || '')}`; %>
+
+            <form class="filters" method="GET" action="/api/dashboard">
+                <input type="hidden" name="sort" value="<%= safeCurrentSort %>">
+                <input type="hidden" name="order" value="<%= safeCurrentOrder %>">
+                <input type="text" name="search" value="<%= searchValue %>" placeholder="Search employees...">
+                <input type="text" name="designation" value="<%= designationValue %>" placeholder="Filter by designation">
+                <input type="text" name="department" value="<%= departmentValue %>" placeholder="Filter by department">
+                <input type="text" name="location" value="<%= locationValue %>" placeholder="Filter by location">
+                <button type="submit">Apply Filters</button>
+            </form>
+
+            <% if (typeof employees !== 'undefined' && employees.length) { %>
+            <div class="table-wrap" style="margin-top:16px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <% const nextIdOrder = safeCurrentSort === 'id' && safeCurrentOrder === 'asc' ? 'desc' : 'asc'; %>
+                            <% const nextNameOrder = safeCurrentSort === 'name' && safeCurrentOrder === 'asc' ? 'desc' : 'asc'; %>
+                            <th><a href="/api/dashboard?<%= filterQuery %>&sort=id&order=<%= nextIdOrder %>">ID</a></th>
+                            <th><a href="/api/dashboard?<%= filterQuery %>&sort=name&order=<%= nextNameOrder %>">Employees</a></th>
+                            <th>Designation</th>
+                            <th>Email</th>
+                            <th>Contact</th>
+                            <th>Department</th>
+                            <th>Joining Date</th>
+                            <th>Location</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% employees.forEach(function(employee) { %>
+                        <tr>
+                            <td><%= employee.id %></td>
+                            <td><%= employee.name %></td>
+                            <td><%= employee.designation %></td>
+                            <td><%= employee.email %></td>
+                            <td><%= employee.contact %></td>
+                            <td><%= employee.department %></td>
+                            <td><%= employee.joiningDate %></td>
+                            <td><%= employee.location %></td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+            <% } else { %>
+                <div class="empty" style="margin-top:16px;">No employee data is available yet.</div>
+            <% } %>
+        </section>
+    </div>
 </body>
