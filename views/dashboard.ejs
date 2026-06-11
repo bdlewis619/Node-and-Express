@@ -97,6 +97,7 @@
             background: #0ea5e9;
             color: #ffffff;
             font-weight: 700;
+            font-size: 15px;
             cursor: pointer;
         }
         .empty {
@@ -114,16 +115,11 @@
             <a class="logout" href="/">Logout</a>
         </div>
 
-        <section class="card">
-            <h3 style="margin-top:0;">Employee Tools</h3>
-            <div class="actions">
-                <a href="/api/findEmployeeByIdUsingQuery" style="background:#94a3b8;">Query Search</a>
-                <a href="/api/findEmployeeByIdUsingPath" style="background:#94a3b8;">Path Search</a>
-                <a href="/api/addEmployee" style="background:#38bdf8;">Add Employee</a>
-                <a href="/api/updateEmployee" style="background:#38bdf8;">Update Employee</a>
-                <a href="/api/deleteEmployee" style="background:#f87171;">Delete Employee</a>
-            </div>
-        </section>
+        <% if (typeof msg !== 'undefined' && msg) { %>
+            <section class="card" style="border-left: 4px solid #0ea5e9; margin-bottom: 18px;">
+                <strong><%= msg %></strong>
+            </section>
+        <% } %>
 
         <section class="card">
             <h3 style="margin-top:0;">Employee Table</h3>
@@ -140,11 +136,13 @@
             <form class="filters" method="GET" action="/api/dashboard">
                 <input type="hidden" name="sort" value="<%= safeCurrentSort %>">
                 <input type="hidden" name="order" value="<%= safeCurrentOrder %>">
-                <input type="text" name="search" value="<%= searchValue %>" placeholder="Search employees...">
+                <input type="text" name="search" value="<%= searchValue %>" placeholder="Search by ID or name">
                 <input type="text" name="designation" value="<%= designationValue %>" placeholder="Filter by designation">
                 <input type="text" name="department" value="<%= departmentValue %>" placeholder="Filter by department">
                 <input type="text" name="location" value="<%= locationValue %>" placeholder="Filter by location">
                 <button type="submit">Apply Filters</button>
+                <a href="/api/addEmployee" style="display:inline-flex; align-items:center; justify-content:center; padding:10px 14px; border:0; border-radius:8px; background:#38f83e; color:#ffffff; font-weight:700; text-decoration:none; cursor:pointer;">Add Employee</a>
+
             </form>
 
             <% if (typeof employees !== 'undefined' && employees.length) { %>
@@ -162,19 +160,24 @@
                             <th>Department</th>
                             <th>Joining Date</th>
                             <th>Location</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <% employees.forEach(function(employee) { %>
                         <tr>
                             <td><%= employee.id %></td>
-                            <td><%= employee.name %></td>
+                            <td><a href="/api/viewEmployee/<%= employee.id %>" style="text-decoration: none; color: #0f172a; font-weight: bold;"><%= employee.name %></a></td>
                             <td><%= employee.designation %></td>
                             <td><%= employee.email %></td>
                             <td><%= employee.contact %></td>
                             <td><%= employee.department %></td>
                             <td><%= employee.joiningDate %></td>
                             <td><%= employee.location %></td>
+                            <td>
+                                <a href="/api/updateEmployee/<%= employee.id %>" style="background:#38bdf8; padding: 6px 10px; border-radius: 4px; text-decoration: none; color: #00111f; font-size: 12px;">Edit</a>
+                                <a href="/api/deleteEmployee/<%= employee.id %>" style="background:#f87171; padding: 6px 10px; border-radius: 4px; text-decoration: none; color: #00111f; font-size: 12px; margin-left: 4px;">Delete</a>
+                            </td>
                         </tr>
                         <% }) %>
                     </tbody>

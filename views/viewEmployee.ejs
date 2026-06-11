@@ -3,26 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Employees</title>
+    <title>View Employee</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f4f7fb;
+        }
+        .container {
+            max-width: 600px;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0f172a;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .label {
+            font-weight: bold;
+            color: #0f172a;
+        }
+        .value {
+            color: #475569;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        a {
+            padding: 10px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+        }
+        .edit {
+            background: #38bdf8;
+            color: #00111f;
+        }
+        .delete {
+            background: #f87171;
+            color: #00111f;
+        }
+        .back {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+    </style>
 </head>
 <body>
-    <h1>View Employee Details</h1>
-    <ul>
-    <%
-    employees.forEach(employee => {
-    %>
-        <li>
-            <h2><%= employee.name %></h2>
-            <p>Email: <%= employee.email %></p>
-            <p>Position: <%= employee.designation %></p>
-            <p>Contact: <%= employee.contact %></p>
-            <p>Department: <%= employee.department %></p>
-            <p>Joining Date: <%= employee.joiningDate %></p>
-            <p>Location: <%= employee.location %></p>
-        </li>
-    <%
-    });
-    %>
-</ul>
+    <div class="container">
+        <h1>Employee Details</h1>
+        <% if (typeof msg !== 'undefined' && msg) { %>
+            <p style="color: #dc2626;"><strong><%= msg %></strong></p>
+        <% } %>
+
+        <% if (typeof employee !== 'undefined' && employee && employee.id) { %>
+            <% const reversedName = employee.name.split(', ').reverse().join(' '); %>
+            <div class="detail-row">
+                <span class="label">ID:</span>
+                <span class="value"><%= employee.id %></span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Name:</span>
+                <span class="value"><%= reversedName %></span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Email:</span>
+                <span class="value"><%= employee.email %></span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Designation:</span>
+                <span class="value"><%= employee.designation %></span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Contact:</span>
+                <span class="value"><%= employee.contact %></span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Department:</span>
+                <span class="value"><%= employee.department %></span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Joining Date:</span>
+                <span class="value"><%= employee.joiningDate %></span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Location:</span>
+                <span class="value"><%= employee.location %></span>
+            </div>
+
+            <div class="actions">
+                <a href="/api/updateEmployee/<%= employee.id %>" class="edit">Edit</a>
+                <a href="/api/deleteEmployee/<%= employee.id %>" class="delete">Delete</a>
+                <a href="/api/dashboard" class="back">Back to Dashboard</a>
+            </div>
+        <% } else { %>
+            <p>Employee not found. <a href="/api/dashboard">Go back to dashboard</a></p>
+        <% } %>
+    </div>
 </body>
 </html>

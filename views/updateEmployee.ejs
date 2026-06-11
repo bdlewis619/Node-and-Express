@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Employee</title>
+</head>
+<body>
+    <h1>Update Employee Details</h1>
+    <% if (typeof msg !== 'undefined' && msg) { %>
+        <p><strong><%= msg %></strong></p>
+    <% } %>
+
+    <% if (typeof employee !== 'undefined' && employee && employee.id) { %>
+        <form action="/api/updateEmployee/<%= employee.id %>" method="POST">
+            <label for="name">Name:</label><br>
+            <input type="text" id="name" name="name" value="<%= employee.name %>" required><br><br>
+
+            <label for="email">Email:</label><br>
+            <input type="email" id="email" name="email" value="<%= employee.email %>" required><br><br>
+
+            <label for="designation">Designation:</label><br>
+            <input type="text" id="designation" name="designation" value="<%= employee.designation %>" required><br><br>
+
+            <label for="contact">Contact:</label><br>
+            <input type="text" id="contact" name="contact" value="<%= employee.contact %>" required><br><br>
+
+            <label for="department">Department:</label><br>
+            <input type="text" id="department" name="department" value="<%= employee.department %>" required><br><br>
+
+            <label for="joiningDate">Joining Date:</label><br>
+            <input type="date" id="joiningDate" name="joiningDate" value="<%= employee.joiningDate %>" required><br><br>
+
+            <label for="location">Location:</label><br>
+            <input type="text" id="location" name="location" value="<%= employee.location %>" required><br><br>
+
+            <button type="submit">Update Employee</button>
+            <a href="/api/dashboard"><button type="button">Cancel</button></a>
+        </form>
+    <% } else { %>
+        <p>Employee not found. <a href="/api/dashboard">Go back to dashboard</a></p>
+    <% } %>
+</body>
+</html>

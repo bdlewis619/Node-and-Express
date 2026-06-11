@@ -135,11 +135,32 @@ app.post("/signUp", (req, res) => {
 });
 
 // search employee by id with query parameter
-// http://localhost:3000/api/findEmployeeByIdUsingQuery?id=1
+// http://localhost:3000/api/findEmployeeByIdUsingQuery
 app.get('/api/findEmployeeByIdUsingQuery', (req, res) => {
     const employees = readJsonArray(employeeFilePath, defaultEmployees);
     let id = parseInt(req.query.id);
     let employee = employees.find(emp => emp.id === id);
+
+    if (req.query.view === 'dashboard') {
+        const sortKey = req.query.sort || 'id';
+        const order = req.query.order || 'asc';
+        const filters = {
+            search: req.query.id || '',
+            designation: req.query.designation || '',
+            department: req.query.department || '',
+            location: req.query.location || ''
+        };
+
+        const dashboardEmployees = employee ? [employee] : [];
+        return res.render('dashboard', {
+            employees: sortEmployees(dashboardEmployees, sortKey, order),
+            currentSort: sortKey,
+            currentOrder: order,
+            filters,
+            msg: employee ? `Showing employee with ID ${id}` : 'Employee not found'
+        });
+    }
+
     if (employee) {
         res.json(employee);
     } else {
@@ -149,16 +170,16 @@ app.get('/api/findEmployeeByIdUsingQuery', (req, res) => {
 
 // search employee by id with path parameter
 // http://localhost:3000/api/findEmployeeByIdUsingPath/2
-app.get('/api/findEmployeeByIdUsingPath/:id', (req, res) => {
-    const employees = readJsonArray(employeeFilePath, defaultEmployees);
-    let id = parseInt(req.params.id);
-    let employee = employees.find(emp => emp.id === id);
-    if (employee) {
-        res.json(employee);
-    } else {
-        res.status(404).json({ message: 'Employee not found' });
-    }
-});
+// app.get('/api/findEmployeeByIdUsingPath/:id', (req, res) => {
+//     const employees = readJsonArray(employeeFilePath, defaultEmployees);
+//     let id = parseInt(req.params.id);
+//     let employee = employees.find(emp => emp.id === id);
+//     if (employee) {
+//         res.json(employee);
+//     } else {
+//         res.status(404).json({ message: 'Employee not found' });
+//     }
+// });
 
 // http://localhost:3000/api/addEmployee
 app.get('/api/addEmployee', (req, res) => {
@@ -181,10 +202,44 @@ app.post('/api/addEmployee', (req, res) => {
     };
     employees.push(newEmployee);
     writeJsonArray(employeeFilePath, employees);
-    res.render('addEmployee', {
-        msg: `Employee added successfully: ${newEmployee.name}`,
-        employee: newEmployee
-    });
+    res.redirect(`/api/dashboard?msg=${encodeURIComponent(`Employee added successfully: ${newEmployee.name}`)}`);
+});
+
+// http://localhost:3000/api/updateEmployee/:id
+app.get('/api/updateEmployee/:id', (req, res) => {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const id = parseInt(req.params.id);
+    const employee = employees.find(emp => emp.id === id);
+    let msg = '';
+    if (employee) {
+        res.render('updateEmployee', { employee, msg });
+    } else {
+        msg = 'Employee not found';
+        res.render('updateEmployee', { employee: {}, msg });
+    }
+});
+
+// http://localhost:3000/api/updateEmployee/:id
+app.post('/api/updateEmployee/:id', (req, res) => {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const id = parseInt(req.params.id);
+    const employeeIndex = employees.findIndex(emp => emp.id === id);
+    if (employeeIndex !== -1) {
+        employees[employeeIndex] = {
+            id,
+            name: req.body.name || employees[employeeIndex].name,
+            designation: req.body.designation || employees[employeeIndex].designation,
+            email: req.body.email || employees[employeeIndex].email,
+            contact: req.body.contact || employees[employeeIndex].contact,
+            department: req.body.department || employees[employeeIndex].department,
+            joiningDate: req.body.joiningDate || employees[employeeIndex].joiningDate,
+            location: req.body.location || employees[employeeIndex].location
+        };
+        writeJsonArray(employeeFilePath, employees);
+        res.redirect(`/api/dashboard?msg=${encodeURIComponent(`Employee updated successfully: ${employees[employeeIndex].name}`)}`);
+    } else {
+        res.status(404).json({ message: 'Employee not found' });
+    }
 });
 
 app.get('/api/dashboard', (req, res) => {
@@ -197,6 +252,25 @@ app.get('/api/dashboard', (req, res) => {
     };
     const sortKey = req.query.sort || 'id';
     const order = req.query.order || 'asc';
+    const msg = req.query.msg || '';
+    const normalizedSearch = String(filters.search || '').trim();
+    const searchAsId = Number(normalizedSearch);
+    const searchOnlyById = normalizedSearch !== '' && Number.isInteger(searchAsId) && String(searchAsId) === normalizedSearch && !filters.designation && !filters.department && !filters.location;
+
+    if (searchOnlyById) {
+        const redirectQuery = new URLSearchParams({
+            view: 'dashboard',
+            id: normalizedSearch,
+            sort: sortKey,
+            order,
+            designation: filters.designation,
+            department: filters.department,
+            location: filters.location
+        });
+
+        return res.redirect(`/api/findEmployeeByIdUsingQuery?${redirectQuery.toString()}`);
+    }
+
     const filteredEmployees = matchEmployeeSegments(employees, filters);
     const sortedEmployees = sortEmployees(filteredEmployees, sortKey, order);
     
@@ -204,10 +278,55 @@ app.get('/api/dashboard', (req, res) => {
         employees: sortedEmployees,
         currentSort: sortKey,
         currentOrder: order,
-        filters
+        filters,
+        msg
     });
 });
- 
+
+// http://localhost:3000/api/deleteEmployee/:id
+app.get('/api/deleteEmployee/:id', (req, res) => {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const id = parseInt(req.params.id);
+    const employee = employees.find(emp => emp.id === id);
+    let msg = '';
+    if (employee) {
+        res.render('deleteEmployee', { employee, msg });
+    } else {
+        msg = 'Employee not found';
+        res.render('deleteEmployee', { employee: {}, msg });
+    }
+});
+
+// http://localhost:3000/api/deleteEmployee/:id
+app.post('/api/deleteEmployee/:id', (req, res) => {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const id = parseInt(req.params.id);
+    const employeeIndex = employees.findIndex(emp => emp.id === id);
+    if (employeeIndex !== -1) {
+        const deletedName = employees[employeeIndex].name;
+        employees.splice(employeeIndex, 1);
+        writeJsonArray(employeeFilePath, employees);
+        res.redirect(`/api/dashboard?msg=${encodeURIComponent(`Employee deleted successfully: ${deletedName}`)}`);
+    } else {
+        res.status(404).json({ message: 'Employee not found' });
+    }
+});
+
+// clicking on an employee name in the dashboard should take you to a page showing that employee's details, with options to update or delete the employee
+// http://localhost:3000/api/viewEmployee/:id
+app.get('/api/viewEmployee/:id', (req, res) => {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const id = parseInt(req.params.id);
+    const employee = employees.find(emp => emp.id === id);
+    let msg = '';
+    if (employee) {
+        res.render('viewEmployee', { employee, msg });
+    } else {
+        msg = 'Employee not found';
+        res.render('viewEmployee', { employee: {}, msg });
+    }
+});
+
 function sortEmployees(employees, sortKey = 'id', order = 'asc') {
     const sortedEmployees = [...employees];
 

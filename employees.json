@@ -1,23 +1,32 @@
 [
-	{
-		"id": 1,
-		"name": "Doe, John",
-		"designation": "Software Engineer",
-		"email": "john.doe@example.com",
-		"contact": "123-456-7890",
-		"department": "Engineering",
-		"joiningDate": "2020-01-15",
-		"location": "New York"
-	},
-	{
-		"id": 2,
-		"name": "Smith, Jane",
-		"designation": "Product Manager",
-		"email": "jane.smith@example.com",
-		"contact": "987-654-3210",
-		"department": "Marketing",
-		"joiningDate": "2020-02-01",
-		"location": "Los Angeles"
-	}
+  {
+    "id": 2,
+    "name": "Smith, Jane",
+    "designation": "Product Manager",
+    "email": "jane.smith@example.com",
+    "contact": "987-654-3210",
+    "department": "Marketing",
+    "joiningDate": "2020-02-01",
+    "location": "Los Angeles"
+  },
+  {
+    "id": 3,
+    "name": "Izraelov, God",
+    "designation": "Trader",
+    "email": "izraelov@gmail.com",
+    "contact": "493 204 9846",
+    "department": "Finance",
+    "joiningDate": "2026-06-09",
+    "location": "Israel"
+  },
+  {
+    "id": 4,
+    "name": "Squarepants, Spongebob",
+    "designation": "Fry Cook",
+    "email": "spongebob@gmail.com",
+    "contact": "205 822 8572",
+    "department": "Restaurant",
+    "joiningDate": "1999-06-17",
+    "location": "Bikini Bottom"
+  }
 ]
-

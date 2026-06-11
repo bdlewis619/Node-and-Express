@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Employee</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f4f7fb;
+        }
+        .container {
+            max-width: 600px;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #dc2626;
+        }
+        .employee-details {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #fed7d7;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .label {
+            font-weight: bold;
+            color: #7f1d1d;
+        }
+        .value {
+            color: #991b1b;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        button {
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .delete-btn {
+            background: #dc2626;
+            color: #ffffff;
+        }
+        .cancel-btn {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Delete Employee</h1>
+        <% if (typeof msg !== 'undefined' && msg) { %>
+            <p style="color: #dc2626;"><strong><%= msg %></strong></p>
+        <% } %>
+
+        <% if (typeof employee !== 'undefined' && employee && employee.id) { %>
+            <div class="warning">
+                ⚠️ This action cannot be undone. Are you sure you want to delete this employee?
+            </div>
+            
+            <div class="employee-details">
+                <div class="detail-row">
+                    <span class="label">ID:</span>
+                    <span class="value"><%= employee.id %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Name:</span>
+                    <span class="value"><%= employee.name %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Email:</span>
+                    <span class="value"><%= employee.email %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Designation:</span>
+                    <span class="value"><%= employee.designation %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Contact:</span>
+                    <span class="value"><%= employee.contact %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Department:</span>
+                    <span class="value"><%= employee.department %></span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Location:</span>
+                    <span class="value"><%= employee.location %></span>
+                </div>
+            </div>
+
+            <form action="/api/deleteEmployee/<%= employee.id %>" method="POST" style="display: inline;">
+                <div class="actions">
+                    <button type="submit" class="delete-btn">Confirm Delete</button>
+                    <a href="/api/dashboard" style="text-decoration: none;">
+                        <button type="button" class="cancel-btn">Cancel</button>
+                    </a>
+                </div>
+            </form>
+        <% } else { %>
+            <p style="color: #dc2626;">Employee not found. <a href="/api/dashboard">Go back to dashboard</a></p>
+        <% } %>
+    </div>
+</body>
+</html>
