@@ -2,5 +2,9 @@
   {
     "emailID": "bdlewis619@hotmail.com",
     "password": "$2a$10$l520VSrya0O/T9euHeBZS.Bie6cysj2Btvdn3gqBZfZpbDiAWKKbu"
+  },
+  {
+    "emailID": "name@example.com",
+    "password": "$2a$10$ZcF7ujTW5v4c7lmtT4txb.ACd412B4sJETAK.xW0cylouVRDTycQS"
   }
 ]

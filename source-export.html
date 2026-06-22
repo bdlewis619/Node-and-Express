@@ -1,0 +1,1798 @@
+﻿<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <title>Node and Express Source Export</title>
+  <style>
+    body { margin: 0; font-family: Consolas, 'Courier New', monospace; background: #f4f7fb; color: #0f172a; }
+    .page { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .header, .file { background: #ffffff; border-radius: 16px; padding: 20px 24px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); margin-bottom: 18px; break-inside: avoid; }
+    .header h1 { margin: 0 0 8px; font-family: Arial, sans-serif; }
+    .file h2 { margin: 0 0 12px; font-family: Arial, sans-serif; font-size: 20px; color: #0f172a; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; line-height: 1.45; font-size: 13px; }
+    .muted { color: #475569; font-family: Arial, sans-serif; }
+    @media print { body { background: #ffffff; } .page { max-width: none; padding: 0; } .header, .file { box-shadow: none; border: 1px solid #cbd5e1; } }
+  </style>
+</head>
+<body>
+  <div class='page'>
+    <div class='header'>
+      <h1>Node and Express Source Export</h1>
+      <div class='muted'>Complete workspace source snapshot</div>
+    </div>
+    <div class='file'><h2>app.js</h2><pre>let express = require(&apos;express&apos;);
+let fs = require(&apos;fs&apos;);
+let path = require(&apos;path&apos;);
+let app = express();
+const bcrypt = require(&apos;bcryptjs&apos;);
+
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.set(&apos;view engine&apos;, &apos;ejs&apos;);
+app.set(&apos;views&apos;, path.join(__dirname, &apos;views&apos;));
+
+const employeeFilePath = path.join(__dirname, &apos;employees.json&apos;);
+const loginFilePath = path.join(__dirname, &apos;logins.json&apos;);
+
+// Admin code required to register. Configure via env var `ADMIN_CODE`.
+const ADMIN_CODE = process.env.ADMIN_CODE || &apos;letmein123&apos;;
+
+const defaultEmployees = [
+    { id: 1, name: &apos;Doe, John&apos;, designation: &apos;Software Engineer&apos;, email: &apos;john.doe@example.com&apos;, contact: &apos;123-456-7890&apos;, department: &apos;Engineering&apos;, joiningDate: &apos;2020-01-15&apos;, location: &apos;New York&apos; },
+    { id: 2, name: &apos;Smith, Jane&apos;, designation: &apos;Product Manager&apos;, email: &apos;jane.smith@example.com&apos;, contact: &apos;987-654-3210&apos;, department: &apos;Marketing&apos;, joiningDate: &apos;2020-02-01&apos;, location: &apos;Los Angeles&apos; }
+];
+
+function readJsonArray(filePath, fallbackValue) {
+    try {
+        const fileContent = fs.readFileSync(filePath, &apos;utf8&apos;).trim();
+        if (!fileContent) {
+            return fallbackValue;
+        }
+
+        const parsedContent = JSON.parse(fileContent);
+        return Array.isArray(parsedContent) ? parsedContent : fallbackValue;
+    } catch (error) {
+        return fallbackValue;
+    }
+}
+
+function writeJsonArray(filePath, value) {
+    fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+}
+
+// http://localhost:3000/
+app.get(&apos;/&apos;, (req, res) =&gt; {
+    res.render(&quot;login&quot;);
+});
+
+// http://localhost:3000/signUp
+app.get(&quot;/signUp&quot;, (req, res) =&gt; {
+    let msg = &quot;&quot;;
+    res.render(&quot;signUp&quot;, { msg });
+});
+
+// Backward-compatible alias for the old signup page route
+app.get(&quot;/signUpPage&quot;, (req, res) =&gt; {
+    res.redirect(&quot;/signUp&quot;);
+});
+
+// http://localhost:3000/signIn
+app.post(&quot;/signIn&quot;, (req, res) =&gt; {
+    let msg=&quot;&quot;;
+    let login = req.body;
+    let loginFs = readJsonArray(loginFilePath, []);
+    const stored = loginFs.find(l =&gt; l.emailID === login.emailID);
+    let passwordMatches = false;
+    if (stored) {
+        try {
+            passwordMatches = bcrypt.compareSync(login.password, stored.password);
+        } catch (e) {
+            // fallback if stored.password is plain text
+            passwordMatches = stored.password === login.password;
+        }
+    }
+
+    if (stored &amp;&amp; passwordMatches) {
+        let emailID = stored.emailID;
+        // If the stored password was plaintext and matched, upgrade it to a hashed password
+        if (stored.password === login.password) {
+            try {
+                const newHash = bcrypt.hashSync(login.password, 10);
+                stored.password = newHash;
+                writeJsonArray(loginFilePath, loginFs);
+            } catch (e) {
+                // ignore upgrade errors
+            }
+        }
+        msg = &quot;Login successful. Welcome, &quot; + emailID + &quot;!&quot;;
+        const employees = readJsonArray(employeeFilePath, defaultEmployees);
+        res.render(&quot;dashboard&quot;, {
+            msg,
+            emailID,
+            employees: sortEmployees(employees, &apos;id&apos;, &apos;asc&apos;),
+            currentSort: &apos;id&apos;,
+            currentOrder: &apos;asc&apos;,
+            filters: { search: &apos;&apos;, designation: &apos;&apos;, department: &apos;&apos;, location: &apos;&apos; }
+        });
+    } else {
+        msg = &quot;Invalid email ID or password.&quot;;
+        res.render(&quot;login&quot;,{msg});
+    }
+});
+
+// http://localhost:3000/signUp
+app.post(&quot;/signUp&quot;, (req, res) =&gt; {
+    let msg=&quot;&quot;;
+    const { emailID, password, confirmPassword, adminCode } = req.body || {};
+
+    if (!emailID || !password) {
+        msg = &apos;Email ID and password are required.&apos;;
+        return res.render(&apos;signUp&apos;, { msg });
+    }
+
+    if (password !== confirmPassword) {
+        msg = &apos;Passwords do not match.&apos;;
+        return res.render(&apos;signUp&apos;, { msg });
+    }
+
+    if (adminCode !== ADMIN_CODE) {
+        msg = &apos;Invalid admin code.&apos;;
+        return res.render(&apos;signUp&apos;, { msg });
+    }
+
+    let loginFs = readJsonArray(loginFilePath, []);
+    let loginExists = loginFs.find(l =&gt; l.emailID === emailID);
+    if (loginExists) {
+        msg = &apos;Email ID already exists. Please use a different email ID.&apos;;
+        return res.render(&apos;signUp&apos;, { msg });
+    }
+
+    // Hash the password before storing
+    const hashed = bcrypt.hashSync(password, 10);
+    // Only store the minimal user record with hashed password
+    loginFs.push({ emailID, password: hashed });
+    writeJsonArray(loginFilePath, loginFs);
+    msg = &apos;Sign up successful. Please sign in.&apos;;
+    res.render(&apos;login&apos;, { msg });
+});
+
+// search employee by id with query parameter
+// http://localhost:3000/api/findEmployeeByIdUsingQuery
+app.get(&apos;/api/findEmployeeByIdUsingQuery&apos;, (req, res) =&gt; {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    let id = parseInt(req.query.id);
+    let employee = employees.find(emp =&gt; emp.id === id);
+
+    if (req.query.view === &apos;dashboard&apos;) {
+        const sortKey = req.query.sort || &apos;id&apos;;
+        const order = req.query.order || &apos;asc&apos;;
+        const filters = {
+            search: req.query.id || &apos;&apos;,
+            designation: req.query.designation || &apos;&apos;,
+            department: req.query.department || &apos;&apos;,
+            location: req.query.location || &apos;&apos;
+        };
+
+        const dashboardEmployees = employee ? [employee] : [];
+        return res.render(&apos;dashboard&apos;, {
+            employees: sortEmployees(dashboardEmployees, sortKey, order),
+            currentSort: sortKey,
+            currentOrder: order,
+            filters,
+            msg: employee ? `Showing employee with ID ${id}` : &apos;Employee not found&apos;
+        });
+    }
+
+    if (employee) {
+        res.json(employee);
+    } else {
+        res.status(404).json({ message: &apos;Employee not found&apos; });
+    }
+});
+
+// search employee by id with path parameter
+// http://localhost:3000/api/findEmployeeByIdUsingPath/2
+// app.get(&apos;/api/findEmployeeByIdUsingPath/:id&apos;, (req, res) =&gt; {
+//     const employees = readJsonArray(employeeFilePath, defaultEmployees);
+//     let id = parseInt(req.params.id);
+//     let employee = employees.find(emp =&gt; emp.id === id);
+//     if (employee) {
+//         res.json(employee);
+//     } else {
+//         res.status(404).json({ message: &apos;Employee not found&apos; });
+//     }
+// });
+
+// http://localhost:3000/api/addEmployee
+app.get(&apos;/api/addEmployee&apos;, (req, res) =&gt; {
+    let msg = &apos;&apos;;
+    res.render(&apos;addEmployee&apos;, { msg });
+});
+
+// http://localhost:3000/api/addEmployee
+app.post(&apos;/api/addEmployee&apos;, (req, res) =&gt; {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const newEmployee = {
+        id: employees.length &gt; 0 ? Math.max(...employees.map(emp =&gt; emp.id)) + 1 : 1,
+        name: req.body.name || &apos;New Employee&apos;,
+        designation: req.body.designation || &apos;Unknown&apos;,
+        email: req.body.email || &apos;Unknown&apos;,
+        contact: req.body.contact || &apos;Unknown&apos;,
+        department: req.body.department || &apos;Unknown&apos;,
+        joiningDate: req.body.joiningDate || &apos;Unknown&apos;,
+        location: req.body.location || &apos;Unknown&apos;
+    };
+    employees.push(newEmployee);
+    writeJsonArray(employeeFilePath, employees);
+    res.redirect(`/api/dashboard?msg=${encodeURIComponent(`Employee added successfully: ${newEmployee.name}`)}`);
+});
+
+// http://localhost:3000/api/updateEmployee/:id
+app.get(&apos;/api/updateEmployee/:id&apos;, (req, res) =&gt; {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const id = parseInt(req.params.id);
+    const employee = employees.find(emp =&gt; emp.id === id);
+    let msg = &apos;&apos;;
+    if (employee) {
+        res.render(&apos;updateEmployee&apos;, { employee, msg });
+    } else {
+        msg = &apos;Employee not found&apos;;
+        res.render(&apos;updateEmployee&apos;, { employee: {}, msg });
+    }
+});
+
+// http://localhost:3000/api/updateEmployee/:id
+app.post(&apos;/api/updateEmployee/:id&apos;, (req, res) =&gt; {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const id = parseInt(req.params.id);
+    const employeeIndex = employees.findIndex(emp =&gt; emp.id === id);
+    if (employeeIndex !== -1) {
+        employees[employeeIndex] = {
+            id,
+            name: req.body.name || employees[employeeIndex].name,
+            designation: req.body.designation || employees[employeeIndex].designation,
+            email: req.body.email || employees[employeeIndex].email,
+            contact: req.body.contact || employees[employeeIndex].contact,
+            department: req.body.department || employees[employeeIndex].department,
+            joiningDate: req.body.joiningDate || employees[employeeIndex].joiningDate,
+            location: req.body.location || employees[employeeIndex].location
+        };
+        writeJsonArray(employeeFilePath, employees);
+        res.redirect(`/api/dashboard?msg=${encodeURIComponent(`Employee updated successfully: ${employees[employeeIndex].name}`)}`);
+    } else {
+        res.status(404).json({ message: &apos;Employee not found&apos; });
+    }
+});
+
+app.get(&apos;/api/dashboard&apos;, (req, res) =&gt; {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const filters = {
+        search: req.query.search || &apos;&apos;,
+        designation: req.query.designation || &apos;&apos;,
+        department: req.query.department || &apos;&apos;,
+        location: req.query.location || &apos;&apos;
+    };
+    const sortKey = req.query.sort || &apos;id&apos;;
+    const order = req.query.order || &apos;asc&apos;;
+    const msg = req.query.msg || &apos;&apos;;
+    const normalizedSearch = String(filters.search || &apos;&apos;).trim();
+    const searchAsId = Number(normalizedSearch);
+    const searchOnlyById = normalizedSearch !== &apos;&apos; &amp;&amp; Number.isInteger(searchAsId) &amp;&amp; String(searchAsId) === normalizedSearch &amp;&amp; !filters.designation &amp;&amp; !filters.department &amp;&amp; !filters.location;
+
+    if (searchOnlyById) {
+        const redirectQuery = new URLSearchParams({
+            view: &apos;dashboard&apos;,
+            id: normalizedSearch,
+            sort: sortKey,
+            order,
+            designation: filters.designation,
+            department: filters.department,
+            location: filters.location
+        });
+
+        return res.redirect(`/api/findEmployeeByIdUsingQuery?${redirectQuery.toString()}`);
+    }
+
+    const filteredEmployees = matchEmployeeSegments(employees, filters);
+    const sortedEmployees = sortEmployees(filteredEmployees, sortKey, order);
+    
+    res.render(&apos;dashboard&apos;, {
+        employees: sortedEmployees,
+        currentSort: sortKey,
+        currentOrder: order,
+        filters,
+        msg
+    });
+});
+
+// http://localhost:3000/api/deleteEmployee/:id
+app.get(&apos;/api/deleteEmployee/:id&apos;, (req, res) =&gt; {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const id = parseInt(req.params.id);
+    const employee = employees.find(emp =&gt; emp.id === id);
+    let msg = &apos;&apos;;
+    if (employee) {
+        res.render(&apos;deleteEmployee&apos;, { employee, msg });
+    } else {
+        msg = &apos;Employee not found&apos;;
+        res.render(&apos;deleteEmployee&apos;, { employee: {}, msg });
+    }
+});
+
+// http://localhost:3000/api/deleteEmployee/:id
+app.post(&apos;/api/deleteEmployee/:id&apos;, (req, res) =&gt; {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const id = parseInt(req.params.id);
+    const employeeIndex = employees.findIndex(emp =&gt; emp.id === id);
+    if (employeeIndex !== -1) {
+        const deletedName = employees[employeeIndex].name;
+        employees.splice(employeeIndex, 1);
+        writeJsonArray(employeeFilePath, employees);
+        res.redirect(`/api/dashboard?msg=${encodeURIComponent(`Employee deleted successfully: ${deletedName}`)}`);
+    } else {
+        res.status(404).json({ message: &apos;Employee not found&apos; });
+    }
+});
+
+// clicking on an employee name in the dashboard should take you to a page showing that employee&apos;s details, with options to update or delete the employee
+// http://localhost:3000/api/viewEmployee/:id
+app.get(&apos;/api/viewEmployee/:id&apos;, (req, res) =&gt; {
+    const employees = readJsonArray(employeeFilePath, defaultEmployees);
+    const id = parseInt(req.params.id);
+    const employee = employees.find(emp =&gt; emp.id === id);
+    let msg = &apos;&apos;;
+    if (employee) {
+        res.render(&apos;viewEmployee&apos;, { employee, msg });
+    } else {
+        msg = &apos;Employee not found&apos;;
+        res.render(&apos;viewEmployee&apos;, { employee: {}, msg });
+    }
+});
+
+function sortEmployees(employees, sortKey = &apos;id&apos;, order = &apos;asc&apos;) {
+    const sortedEmployees = [...employees];
+
+    sortedEmployees.sort((a, b) =&gt; {
+        const firstValue = a[sortKey];
+        const secondValue = b[sortKey];
+
+        if (typeof firstValue === &apos;number&apos; &amp;&amp; typeof secondValue === &apos;number&apos;) {
+            return order === &apos;desc&apos; ? secondValue - firstValue : firstValue - secondValue;
+        }
+
+        const firstText = String(firstValue ?? &apos;&apos;).toLowerCase();
+        const secondText = String(secondValue ?? &apos;&apos;).toLowerCase();
+
+        if (firstText &lt; secondText) {
+            return order === &apos;desc&apos; ? 1 : -1;
+        }
+
+        if (firstText &gt; secondText) {
+            return order === &apos;desc&apos; ? -1 : 1;
+        }
+
+        return 0;
+    });
+
+    return sortedEmployees;
+}
+
+function matchEmployeeSegments(employees, filters = {}) {
+    const searchTerm = String(filters.search || &apos;&apos;).trim().toLowerCase();
+    const designationTerm = String(filters.designation || &apos;&apos;).trim().toLowerCase();
+    const departmentTerm = String(filters.department || &apos;&apos;).trim().toLowerCase();
+    const locationTerm = String(filters.location || &apos;&apos;).trim().toLowerCase();
+
+    return employees.filter(employee =&gt; {
+        const name = String(employee.name || &apos;&apos;).toLowerCase();
+        const designation = String(employee.designation || &apos;&apos;).toLowerCase();
+        const department = String(employee.department || &apos;&apos;).toLowerCase();
+        const location = String(employee.location || &apos;&apos;).toLowerCase();
+        const email = String(employee.email || &apos;&apos;).toLowerCase();
+
+        const searchMatches =
+            !searchTerm ||
+            name.includes(searchTerm) ||
+            designation.includes(searchTerm) ||
+            department.includes(searchTerm) ||
+            location.includes(searchTerm) ||
+            email.includes(searchTerm);
+
+        const designationMatches = !designationTerm || designation.includes(designationTerm);
+        const departmentMatches = !departmentTerm || department.includes(departmentTerm);
+        const locationMatches = !locationTerm || location.includes(locationTerm);
+
+        return searchMatches &amp;&amp; designationMatches &amp;&amp; departmentMatches &amp;&amp; locationMatches;
+    });
+}
+
+app.listen(3000, () =&gt; {
+    console.log(&apos;Server is running on port 3000&apos;);
+});</pre></div>
+<div class='file'><h2>package.json</h2><pre>{
+	&quot;name&quot;: &quot;node-and-express-login-app&quot;,
+	&quot;version&quot;: &quot;1.0.0&quot;,
+	&quot;description&quot;: &quot;Simple Node and Express login and employee demo app&quot;,
+	&quot;main&quot;: &quot;app.js&quot;,
+	&quot;scripts&quot;: {
+		&quot;start&quot;: &quot;node app.js&quot;,
+		&quot;dev&quot;: &quot;nodemon app.js&quot;
+	},
+	&quot;dependencies&quot;: {
+		&quot;bcryptjs&quot;: &quot;^2.4.3&quot;,
+		&quot;ejs&quot;: &quot;^3.1.10&quot;,
+		&quot;express&quot;: &quot;^4.19.2&quot;
+	},
+	&quot;devDependencies&quot;: {
+		&quot;nodemon&quot;: &quot;^3.1.14&quot;
+	}
+}
+</pre></div>
+<div class='file'><h2>employees.json</h2><pre>[
+  {
+    &quot;id&quot;: 2,
+    &quot;name&quot;: &quot;Smith, Justin&quot;,
+    &quot;designation&quot;: &quot;Product Manager&quot;,
+    &quot;email&quot;: &quot;residentsmith@yahoo.com&quot;,
+    &quot;contact&quot;: &quot;987-654-3210&quot;,
+    &quot;department&quot;: &quot;Marketing&quot;,
+    &quot;joiningDate&quot;: &quot;2020-02-01&quot;,
+    &quot;location&quot;: &quot;Los Angeles&quot;
+  },
+  {
+    &quot;id&quot;: 3,
+    &quot;name&quot;: &quot;Izraelov, God&quot;,
+    &quot;designation&quot;: &quot;Trader&quot;,
+    &quot;email&quot;: &quot;izraelov@gmail.com&quot;,
+    &quot;contact&quot;: &quot;493 204 9846&quot;,
+    &quot;department&quot;: &quot;Finance&quot;,
+    &quot;joiningDate&quot;: &quot;2026-06-09&quot;,
+    &quot;location&quot;: &quot;Israel&quot;
+  },
+  {
+    &quot;id&quot;: 4,
+    &quot;name&quot;: &quot;Squarepants, Spongebob&quot;,
+    &quot;designation&quot;: &quot;Fry Cook&quot;,
+    &quot;email&quot;: &quot;spongebob@gmail.com&quot;,
+    &quot;contact&quot;: &quot;205 822 8572&quot;,
+    &quot;department&quot;: &quot;Restaurant&quot;,
+    &quot;joiningDate&quot;: &quot;1999-06-17&quot;,
+    &quot;location&quot;: &quot;Bikini Bottom&quot;
+  }
+]</pre></div>
+<div class='file'><h2>logins.json</h2><pre>[
+  {
+    &quot;emailID&quot;: &quot;bdlewis619@hotmail.com&quot;,
+    &quot;password&quot;: &quot;$2a$10$l520VSrya0O/T9euHeBZS.Bie6cysj2Btvdn3gqBZfZpbDiAWKKbu&quot;
+  },
+  {
+    &quot;emailID&quot;: &quot;name@example.com&quot;,
+    &quot;password&quot;: &quot;$2a$10$ZcF7ujTW5v4c7lmtT4txb.ACd412B4sJETAK.xW0cylouVRDTycQS&quot;
+  }
+]</pre></div>
+<div class='file'><h2>views\addEmployee.ejs</h2><pre>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+    &lt;title&gt;Add Employee&lt;/title&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f4f7fb;
+            color: #0f172a;
+        }
+        .page {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 16px;
+            color: #0ea5e9;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .form-grid {
+            display: grid;
+            gap: 14px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        button,
+        .button-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        button[type=&quot;submit&quot;] {
+            background: #38bdf8;
+            color: #00111f;
+        }
+        .button-link {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+        .notice {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            background: #f8fafc;
+            border-left: 4px solid #0ea5e9;
+            border-radius: 12px;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class=&quot;page&quot;&gt;
+        &lt;a class=&quot;back-link&quot; href=&quot;/api/dashboard&quot;&gt;Back to Dashboard&lt;/a&gt;
+        &lt;div class=&quot;card&quot;&gt;
+            &lt;h1 style=&quot;margin-top:0;&quot;&gt;Add New Employee&lt;/h1&gt;
+            &lt;% if (typeof msg !== &apos;undefined&apos; &amp;&amp; msg) { %&gt;
+                &lt;div class=&quot;notice&quot;&gt;&lt;%= msg %&gt;&lt;/div&gt;
+            &lt;% } %&gt;
+
+            &lt;form class=&quot;form-grid&quot; action=&quot;/api/addEmployee&quot; method=&quot;POST&quot;&gt;
+                &lt;div&gt;
+                    &lt;label for=&quot;name&quot;&gt;Name:&lt;/label&gt;
+                    &lt;input type=&quot;text&quot; id=&quot;name&quot; name=&quot;name&quot; placeholder=&quot;Lastname, Firstname&quot; required&gt;
+                &lt;/div&gt;
+
+                &lt;div&gt;
+                    &lt;label for=&quot;email&quot;&gt;Email:&lt;/label&gt;
+                    &lt;input type=&quot;email&quot; id=&quot;email&quot; name=&quot;email&quot; required&gt;
+                &lt;/div&gt;
+
+                &lt;div&gt;
+                    &lt;label for=&quot;designation&quot;&gt;Designation:&lt;/label&gt;
+                    &lt;input type=&quot;text&quot; id=&quot;designation&quot; name=&quot;designation&quot; required&gt;
+                &lt;/div&gt;
+
+                &lt;div&gt;
+                    &lt;label for=&quot;contact&quot;&gt;Contact:&lt;/label&gt;
+                    &lt;input type=&quot;text&quot; id=&quot;contact&quot; name=&quot;contact&quot; required&gt;
+                &lt;/div&gt;
+
+                &lt;div&gt;
+                    &lt;label for=&quot;department&quot;&gt;Department:&lt;/label&gt;
+                    &lt;input type=&quot;text&quot; id=&quot;department&quot; name=&quot;department&quot;&gt;
+                &lt;/div&gt;
+
+                &lt;div&gt;
+                    &lt;label for=&quot;joiningDate&quot;&gt;Joining Date:&lt;/label&gt;
+                    &lt;input type=&quot;date&quot; id=&quot;joiningDate&quot; name=&quot;joiningDate&quot;&gt;
+                &lt;/div&gt;
+
+                &lt;div&gt;
+                    &lt;label for=&quot;location&quot;&gt;Location:&lt;/label&gt;
+                    &lt;input type=&quot;text&quot; id=&quot;location&quot; name=&quot;location&quot;&gt;
+                &lt;/div&gt;
+
+                &lt;div class=&quot;actions&quot;&gt;
+                    &lt;button type=&quot;submit&quot;&gt;Add Employee&lt;/button&gt;
+                    &lt;a class=&quot;button-link&quot; href=&quot;/api/dashboard&quot;&gt;Cancel&lt;/a&gt;
+                &lt;/div&gt;
+            &lt;/form&gt;
+
+            &lt;% if (typeof employee !== &apos;undefined&apos; &amp;&amp; employee) { %&gt;
+                &lt;h2&gt;Created Employee&lt;/h2&gt;
+                &lt;pre&gt;&lt;%= JSON.stringify(employee, null, 2) %&gt;&lt;/pre&gt;
+            &lt;% } %&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre></div>
+<div class='file'><h2>views\dashboard.ejs</h2><pre>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+    &lt;title&gt;Dashboard&lt;/title&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f4f7fb;
+            color: #0f172a;
+        }
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .logout {
+            text-decoration: none;
+            color: #ffffff;
+            background: #dc2626;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-weight: 700;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            margin-bottom: 24px;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .actions a {
+            padding: 10px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            color: #00111f;
+        }
+        .table-wrap {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1100px;
+            background: #ffffff;
+        }
+        th, td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+            white-space: nowrap;
+        }
+        th {
+            background: #0f172a;
+            color: #ffffff;
+        }
+        th a {
+            color: inherit;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .filters input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+        }
+        .filters button {
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 8px;
+            background: #0ea5e9;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .empty {
+            padding: 18px;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class=&quot;page&quot;&gt;
+        &lt;div class=&quot;topbar&quot;&gt;
+            &lt;h2 style=&quot;margin:0;&quot;&gt;Welcome to the Employee Management Dashboard&lt;%= typeof emailID !== &apos;undefined&apos; ? &apos;, &apos; + emailID : &apos;&apos; %&gt;&lt;/h2&gt;
+            &lt;a class=&quot;logout&quot; href=&quot;/&quot;&gt;Logout&lt;/a&gt;
+        &lt;/div&gt;
+
+        &lt;% if (typeof msg !== &apos;undefined&apos; &amp;&amp; msg) { %&gt;
+            &lt;section class=&quot;card&quot; style=&quot;border-left: 4px solid #0ea5e9; margin-bottom: 18px;&quot;&gt;
+                &lt;strong&gt;&lt;%= msg %&gt;&lt;/strong&gt;
+            &lt;/section&gt;
+        &lt;% } %&gt;
+
+        &lt;section class=&quot;card&quot;&gt;
+            &lt;h3 style=&quot;margin-top:0;&quot;&gt;Employee Table&lt;/h3&gt;
+
+            &lt;% const safeCurrentSort = typeof currentSort !== &apos;undefined&apos; ? currentSort : &apos;id&apos;; %&gt;
+            &lt;% const safeCurrentOrder = typeof currentOrder !== &apos;undefined&apos; ? currentOrder : &apos;asc&apos;; %&gt;
+            &lt;% const safeFilters = typeof filters !== &apos;undefined&apos; ? filters : { search: &apos;&apos;, designation: &apos;&apos;, department: &apos;&apos;, location: &apos;&apos; }; %&gt;
+            &lt;% const searchValue = safeFilters.search || &apos;&apos;; %&gt;
+            &lt;% const designationValue = safeFilters.designation || &apos;&apos;; %&gt;
+            &lt;% const departmentValue = safeFilters.department || &apos;&apos;; %&gt;
+            &lt;% const locationValue = safeFilters.location || &apos;&apos;; %&gt;
+            &lt;% const filterQuery = `search=${encodeURIComponent(searchValue || &apos;&apos;)}&amp;designation=${encodeURIComponent(designationValue || &apos;&apos;)}&amp;department=${encodeURIComponent(departmentValue || &apos;&apos;)}&amp;location=${encodeURIComponent(locationValue || &apos;&apos;)}`; %&gt;
+
+            &lt;form class=&quot;filters&quot; method=&quot;GET&quot; action=&quot;/api/dashboard&quot;&gt;
+                &lt;input type=&quot;hidden&quot; name=&quot;sort&quot; value=&quot;&lt;%= safeCurrentSort %&gt;&quot;&gt;
+                &lt;input type=&quot;hidden&quot; name=&quot;order&quot; value=&quot;&lt;%= safeCurrentOrder %&gt;&quot;&gt;
+                &lt;input type=&quot;text&quot; name=&quot;search&quot; value=&quot;&lt;%= searchValue %&gt;&quot; placeholder=&quot;Search by ID or name&quot;&gt;
+                &lt;input type=&quot;text&quot; name=&quot;designation&quot; value=&quot;&lt;%= designationValue %&gt;&quot; placeholder=&quot;Filter by designation&quot;&gt;
+                &lt;input type=&quot;text&quot; name=&quot;department&quot; value=&quot;&lt;%= departmentValue %&gt;&quot; placeholder=&quot;Filter by department&quot;&gt;
+                &lt;input type=&quot;text&quot; name=&quot;location&quot; value=&quot;&lt;%= locationValue %&gt;&quot; placeholder=&quot;Filter by location&quot;&gt;
+                &lt;button type=&quot;submit&quot;&gt;Apply Filters&lt;/button&gt;
+                &lt;a href=&quot;/api/addEmployee&quot; style=&quot;display:inline-flex; align-items:center; justify-content:center; padding:10px 14px; border:0; border-radius:8px; background:#38f83e; color:#ffffff; font-weight:700; text-decoration:none; cursor:pointer;&quot;&gt;Add Employee&lt;/a&gt;
+
+            &lt;/form&gt;
+
+            &lt;% if (typeof employees !== &apos;undefined&apos; &amp;&amp; employees.length) { %&gt;
+            &lt;div class=&quot;table-wrap&quot; style=&quot;margin-top:16px;&quot;&gt;
+                &lt;table&gt;
+                    &lt;thead&gt;
+                        &lt;tr&gt;
+                            &lt;% const nextIdOrder = safeCurrentSort === &apos;id&apos; &amp;&amp; safeCurrentOrder === &apos;asc&apos; ? &apos;desc&apos; : &apos;asc&apos;; %&gt;
+                            &lt;% const nextNameOrder = safeCurrentSort === &apos;name&apos; &amp;&amp; safeCurrentOrder === &apos;asc&apos; ? &apos;desc&apos; : &apos;asc&apos;; %&gt;
+                            &lt;th&gt;&lt;a href=&quot;/api/dashboard?&lt;%= filterQuery %&gt;&amp;sort=id&amp;order=&lt;%= nextIdOrder %&gt;&quot;&gt;ID&lt;/a&gt;&lt;/th&gt;
+                            &lt;th&gt;&lt;a href=&quot;/api/dashboard?&lt;%= filterQuery %&gt;&amp;sort=name&amp;order=&lt;%= nextNameOrder %&gt;&quot;&gt;Employees&lt;/a&gt;&lt;/th&gt;
+                            &lt;th&gt;Designation&lt;/th&gt;
+                            &lt;th&gt;Email&lt;/th&gt;
+                            &lt;th&gt;Contact&lt;/th&gt;
+                            &lt;th&gt;Department&lt;/th&gt;
+                            &lt;th&gt;Joining Date&lt;/th&gt;
+                            &lt;th&gt;Location&lt;/th&gt;
+                            &lt;th&gt;Actions&lt;/th&gt;
+                        &lt;/tr&gt;
+                    &lt;/thead&gt;
+                    &lt;tbody&gt;
+                        &lt;% employees.forEach(function(employee) { %&gt;
+                        &lt;tr&gt;
+                            &lt;td&gt;&lt;%= employee.id %&gt;&lt;/td&gt;
+                            &lt;td&gt;&lt;a href=&quot;/api/viewEmployee/&lt;%= employee.id %&gt;&quot; style=&quot;text-decoration: none; color: #0f172a; font-weight: bold;&quot;&gt;&lt;%= employee.name %&gt;&lt;/a&gt;&lt;/td&gt;
+                            &lt;td&gt;&lt;%= employee.designation %&gt;&lt;/td&gt;
+                            &lt;td&gt;&lt;%= employee.email %&gt;&lt;/td&gt;
+                            &lt;td&gt;&lt;%= employee.contact %&gt;&lt;/td&gt;
+                            &lt;td&gt;&lt;%= employee.department %&gt;&lt;/td&gt;
+                            &lt;td&gt;&lt;%= employee.joiningDate %&gt;&lt;/td&gt;
+                            &lt;td&gt;&lt;%= employee.location %&gt;&lt;/td&gt;
+                            &lt;td&gt;
+                                &lt;a href=&quot;/api/updateEmployee/&lt;%= employee.id %&gt;&quot; style=&quot;background:#38bdf8; padding: 6px 10px; border-radius: 4px; text-decoration: none; color: #00111f; font-size: 12px;&quot;&gt;Edit&lt;/a&gt;
+                                &lt;a href=&quot;/api/deleteEmployee/&lt;%= employee.id %&gt;&quot; style=&quot;background:#f87171; padding: 6px 10px; border-radius: 4px; text-decoration: none; color: #00111f; font-size: 12px; margin-left: 4px;&quot;&gt;Delete&lt;/a&gt;
+                            &lt;/td&gt;
+                        &lt;/tr&gt;
+                        &lt;% }) %&gt;
+                    &lt;/tbody&gt;
+                &lt;/table&gt;
+            &lt;/div&gt;
+            &lt;% } else { %&gt;
+                &lt;div class=&quot;empty&quot; style=&quot;margin-top:16px;&quot;&gt;No employee data is available yet.&lt;/div&gt;
+            &lt;% } %&gt;
+        &lt;/section&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+</pre></div>
+<div class='file'><h2>views\deleteEmployee.ejs</h2><pre>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+    &lt;title&gt;Delete Employee&lt;/title&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f4f7fb;
+        }
+        .container {
+            max-width: 600px;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #dc2626;
+        }
+        .employee-details {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #fed7d7;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .label {
+            font-weight: bold;
+            color: #7f1d1d;
+        }
+        .value {
+            color: #991b1b;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        button {
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .delete-btn {
+            background: #dc2626;
+            color: #ffffff;
+        }
+        .cancel-btn {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            color: #92400e;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class=&quot;container&quot;&gt;
+        &lt;h1&gt;Delete Employee&lt;/h1&gt;
+        &lt;% if (typeof msg !== &apos;undefined&apos; &amp;&amp; msg) { %&gt;
+            &lt;p style=&quot;color: #dc2626;&quot;&gt;&lt;strong&gt;&lt;%= msg %&gt;&lt;/strong&gt;&lt;/p&gt;
+        &lt;% } %&gt;
+
+        &lt;% if (typeof employee !== &apos;undefined&apos; &amp;&amp; employee &amp;&amp; employee.id) { %&gt;
+            &lt;div class=&quot;warning&quot;&gt;
+                âš ï¸ This action cannot be undone. Are you sure you want to delete this employee?
+            &lt;/div&gt;
+            
+            &lt;div class=&quot;employee-details&quot;&gt;
+                &lt;div class=&quot;detail-row&quot;&gt;
+                    &lt;span class=&quot;label&quot;&gt;ID:&lt;/span&gt;
+                    &lt;span class=&quot;value&quot;&gt;&lt;%= employee.id %&gt;&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div class=&quot;detail-row&quot;&gt;
+                    &lt;span class=&quot;label&quot;&gt;Name:&lt;/span&gt;
+                    &lt;span class=&quot;value&quot;&gt;&lt;%= employee.name %&gt;&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div class=&quot;detail-row&quot;&gt;
+                    &lt;span class=&quot;label&quot;&gt;Email:&lt;/span&gt;
+                    &lt;span class=&quot;value&quot;&gt;&lt;%= employee.email %&gt;&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div class=&quot;detail-row&quot;&gt;
+                    &lt;span class=&quot;label&quot;&gt;Designation:&lt;/span&gt;
+                    &lt;span class=&quot;value&quot;&gt;&lt;%= employee.designation %&gt;&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div class=&quot;detail-row&quot;&gt;
+                    &lt;span class=&quot;label&quot;&gt;Contact:&lt;/span&gt;
+                    &lt;span class=&quot;value&quot;&gt;&lt;%= employee.contact %&gt;&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div class=&quot;detail-row&quot;&gt;
+                    &lt;span class=&quot;label&quot;&gt;Department:&lt;/span&gt;
+                    &lt;span class=&quot;value&quot;&gt;&lt;%= employee.department %&gt;&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div class=&quot;detail-row&quot;&gt;
+                    &lt;span class=&quot;label&quot;&gt;Location:&lt;/span&gt;
+                    &lt;span class=&quot;value&quot;&gt;&lt;%= employee.location %&gt;&lt;/span&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+
+            &lt;form action=&quot;/api/deleteEmployee/&lt;%= employee.id %&gt;&quot; method=&quot;POST&quot; style=&quot;display: inline;&quot;&gt;
+                &lt;div class=&quot;actions&quot;&gt;
+                    &lt;button type=&quot;submit&quot; class=&quot;delete-btn&quot;&gt;Confirm Delete&lt;/button&gt;
+                    &lt;a href=&quot;/api/dashboard&quot; style=&quot;text-decoration: none;&quot;&gt;
+                        &lt;button type=&quot;button&quot; class=&quot;cancel-btn&quot;&gt;Cancel&lt;/button&gt;
+                    &lt;/a&gt;
+                &lt;/div&gt;
+            &lt;/form&gt;
+        &lt;% } else { %&gt;
+            &lt;p style=&quot;color: #dc2626;&quot;&gt;Employee not found. &lt;a href=&quot;/api/dashboard&quot;&gt;Go back to dashboard&lt;/a&gt;&lt;/p&gt;
+        &lt;% } %&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre></div>
+<div class='file'><h2>views\login.ejs</h2><pre>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+	&lt;meta charset=&quot;UTF-8&quot;&gt;
+	&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+	&lt;title&gt;Login&lt;/title&gt;
+	&lt;style&gt;
+		:root {
+			--bg: #0f172a;
+			--panel: rgba(15, 23, 42, 0.88);
+			--panel-border: rgba(148, 163, 184, 0.22);
+			--text: #e2e8f0;
+			--muted: #94a3b8;
+			--accent: #38bdf8;
+			--accent-strong: #0ea5e9;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			font-family: &quot;Segoe UI&quot;, Tahoma, Geneva, Verdana, sans-serif;
+			color: var(--text);
+			background:
+				radial-gradient(circle at top left, rgba(56, 189, 248, 0.28), transparent 30%),
+				radial-gradient(circle at top right, rgba(34, 197, 94, 0.18), transparent 28%),
+				linear-gradient(135deg, #020617 0%, #0f172a 45%, #111827 100%);
+			display: grid;
+			place-items: center;
+			padding: 24px;
+		}
+
+		.card {
+			width: min(100%, 960px);
+			display: grid;
+			grid-template-columns: 1.1fr 0.9fr;
+			border: 1px solid var(--panel-border);
+			border-radius: 24px;
+			overflow: hidden;
+			background: var(--panel);
+			box-shadow: 0 24px 80px rgba(2, 6, 23, 0.45);
+			backdrop-filter: blur(14px);
+		}
+
+		.hero {
+			padding: 48px;
+			background:
+				linear-gradient(160deg, rgba(14, 165, 233, 0.16), rgba(15, 23, 42, 0.08)),
+				linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
+		}
+
+		.eyebrow {
+			display: inline-flex;
+			align-items: center;
+			gap: 10px;
+			padding: 8px 14px;
+			border-radius: 999px;
+			background: rgba(56, 189, 248, 0.12);
+			color: #7dd3fc;
+			font-size: 0.85rem;
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+		}
+
+		h1 {
+			margin: 18px 0 12px;
+			font-size: clamp(2.2rem, 5vw, 4rem);
+			line-height: 1;
+		}
+
+		.lead {
+			margin: 0;
+			max-width: 34rem;
+			color: var(--muted);
+			font-size: 1rem;
+			line-height: 1.7;
+		}
+
+		.quick-actions {
+			margin-top: 28px;
+			display: grid;
+			gap: 12px;
+		}
+
+		.action-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 12px;
+		}
+
+		.button {
+			appearance: none;
+			border: 0;
+			border-radius: 14px;
+			padding: 10px 14px;
+			font-weight: 700;
+			font-size: 0.95rem;
+			text-decoration: none;
+			cursor: pointer;
+			transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 120px;
+		}
+
+		.button:hover {
+			transform: translateY(-1px);
+		}
+
+		.button-primary {
+			background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+			color: #00111f;
+			box-shadow: 0 12px 24px rgba(14, 165, 233, 0.28);
+		}
+
+		.button-secondary {
+			background: rgba(148, 163, 184, 0.12);
+			color: var(--text);
+			border: 1px solid rgba(148, 163, 184, 0.2);
+		}
+
+		.button-success {
+			background: rgba(34, 197, 94, 0.16);
+			color: #bbf7d0;
+			border: 1px solid rgba(34, 197, 94, 0.22);
+		}
+
+		.form-panel {
+			padding: 48px;
+			border-left: 1px solid var(--panel-border);
+			background: rgba(15, 23, 42, 0.58);
+		}
+
+		.form-panel h2 {
+			margin: 0 0 8px;
+			font-size: 1.7rem;
+		}
+
+		.form-panel p {
+			margin: 0 0 24px;
+			color: var(--muted);
+			line-height: 1.6;
+		}
+
+		.message {
+			margin: 0 0 18px;
+			padding: 12px 14px;
+			border-radius: 12px;
+			background: rgba(59, 130, 246, 0.12);
+			color: #dbeafe;
+			border: 1px solid rgba(59, 130, 246, 0.18);
+		}
+
+		.field {
+			margin-bottom: 16px;
+		}
+
+		label {
+			display: block;
+			margin-bottom: 8px;
+			color: #cbd5e1;
+			font-size: 0.95rem;
+		}
+
+		input {
+			width: 100%;
+			padding: 14px 16px;
+			border-radius: 14px;
+			border: 1px solid rgba(148, 163, 184, 0.22);
+			background: rgba(15, 23, 42, 0.9);
+			color: var(--text);
+			outline: none;
+		}
+
+		input:focus {
+			border-color: rgba(56, 189, 248, 0.8);
+			box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.12);
+		}
+
+		.form-actions {
+			display: flex;
+			gap: 12px;
+			flex-wrap: wrap;
+			margin-top: 22px;
+		}
+
+		.links {
+			margin-top: 20px;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px 16px;
+			font-size: 0.95rem;
+		}
+
+		.links a {
+			color: #7dd3fc;
+			text-decoration: none;
+		}
+
+		.links a:hover {
+			text-decoration: underline;
+		}
+
+		.route-list {
+			margin-top: 24px;
+			padding: 16px;
+			border-radius: 16px;
+			border: 1px solid rgba(148, 163, 184, 0.18);
+			background: rgba(2, 6, 23, 0.35);
+		}
+
+		.route-list h3 {
+			margin: 0 0 12px;
+			font-size: 1rem;
+			color: #cbd5e1;
+		}
+
+		.route-list ul {
+			margin: 0;
+			padding-left: 18px;
+			color: var(--muted);
+			line-height: 1.8;
+		}
+
+		@media (max-width: 840px) {
+			.card {
+				grid-template-columns: 1fr;
+			}
+
+			.form-panel {
+				border-left: 0;
+				border-top: 1px solid var(--panel-border);
+			}
+		}
+
+		@media (max-width: 640px) {
+			.hero,
+			.form-panel {
+				padding: 28px;
+			}
+
+			.button {
+				width: 100%;
+			}
+		}
+	&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+	&lt;main class=&quot;card&quot;&gt;
+		&lt;section class=&quot;hero&quot;&gt;
+			&lt;span class=&quot;eyebrow&quot;&gt;Employee access portal&lt;/span&gt;
+			&lt;h1&gt;Welcome back&lt;/h1&gt;
+			&lt;p class=&quot;lead&quot;&gt;
+				Sign in to manage employee data and view the dashboard.
+			&lt;/p&gt;
+
+		&lt;/section&gt;
+
+		&lt;section class=&quot;form-panel&quot;&gt;
+			&lt;h2&gt;Login&lt;/h2&gt;
+			&lt;p&gt;Use your email ID and password to access the dashboard.&lt;/p&gt;
+
+			&lt;% if (typeof msg !== &apos;undefined&apos; &amp;&amp; msg) { %&gt;
+				&lt;div class=&quot;message&quot;&gt;&lt;%= msg %&gt;&lt;/div&gt;
+			&lt;% } %&gt;
+
+			&lt;form action=&quot;/signIn&quot; method=&quot;post&quot;&gt;
+				&lt;div class=&quot;field&quot;&gt;
+					&lt;label for=&quot;emailID&quot;&gt;Email ID&lt;/label&gt;
+					&lt;input type=&quot;email&quot; id=&quot;emailID&quot; name=&quot;emailID&quot; placeholder=&quot;name@example.com&quot; required&gt;
+				&lt;/div&gt;
+
+				&lt;div class=&quot;field&quot;&gt;
+					&lt;label for=&quot;password&quot;&gt;Password&lt;/label&gt;
+					&lt;input type=&quot;password&quot; id=&quot;password&quot; name=&quot;password&quot; placeholder=&quot;Enter your password&quot; required&gt;
+				&lt;/div&gt;
+
+				&lt;div class=&quot;form-actions&quot;&gt;
+					&lt;button class=&quot;button button-primary&quot; type=&quot;submit&quot;&gt;Sign In&lt;/button&gt;
+					&lt;a class=&quot;button button-secondary&quot; href=&quot;/signUp&quot;&gt;Sign Up&lt;/a&gt;
+				&lt;/div&gt;
+			&lt;/form&gt;
+
+		&lt;/section&gt;
+	&lt;/main&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</pre></div>
+<div class='file'><h2>views\signUp.ejs</h2><pre>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+	&lt;meta charset=&quot;UTF-8&quot;&gt;
+	&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+	&lt;title&gt;Sign Up&lt;/title&gt;
+	&lt;style&gt;
+		:root {
+			--bg: #07111f;
+			--panel: rgba(8, 15, 28, 0.88);
+			--panel-border: rgba(148, 163, 184, 0.22);
+			--text: #e5eefb;
+			--muted: #9aa9bd;
+			--accent: #f59e0b;
+			--accent-strong: #fb7185;
+			--accent-soft: rgba(245, 158, 11, 0.14);
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			display: grid;
+			place-items: center;
+			padding: 24px;
+			color: var(--text);
+			font-family: &quot;Segoe UI&quot;, Tahoma, Geneva, Verdana, sans-serif;
+			background:
+				radial-gradient(circle at top left, rgba(245, 158, 11, 0.24), transparent 30%),
+				radial-gradient(circle at top right, rgba(251, 113, 133, 0.16), transparent 24%),
+				linear-gradient(135deg, #020617 0%, #07111f 45%, #111827 100%);
+		}
+
+		.card {
+			width: min(100%, 980px);
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			overflow: hidden;
+			border-radius: 24px;
+			border: 1px solid var(--panel-border);
+			background: var(--panel);
+			box-shadow: 0 26px 80px rgba(2, 6, 23, 0.48);
+			backdrop-filter: blur(16px);
+		}
+
+		.hero {
+			padding: 48px;
+			background:
+				linear-gradient(155deg, rgba(245, 158, 11, 0.16), rgba(15, 23, 42, 0.04)),
+				linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+		}
+
+		.eyebrow {
+			display: inline-flex;
+			align-items: center;
+			gap: 10px;
+			padding: 8px 14px;
+			border-radius: 999px;
+			background: rgba(245, 158, 11, 0.13);
+			color: #fde68a;
+			font-size: 0.84rem;
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+		}
+
+		h1 {
+			margin: 18px 0 12px;
+			font-size: clamp(2.2rem, 5vw, 4rem);
+			line-height: 1;
+		}
+
+		.lead {
+			margin: 0;
+			max-width: 36rem;
+			color: var(--muted);
+			line-height: 1.7;
+		}
+
+		.route-grid {
+			margin-top: 28px;
+			display: grid;
+			gap: 12px;
+		}
+
+		.row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 12px;
+		}
+
+		.button {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 120px;
+			padding: 10px 14px;
+			border-radius: 14px;
+			border: 0;
+			text-decoration: none;
+			font-weight: 700;
+			font-size: 0.95rem;
+			cursor: pointer;
+			transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+		}
+
+		.button:hover {
+			transform: translateY(-1px);
+		}
+
+		.button-primary {
+			background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+			color: #1a0f00;
+			box-shadow: 0 12px 24px rgba(245, 158, 11, 0.26);
+		}
+
+		.button-secondary {
+			background: rgba(148, 163, 184, 0.12);
+			color: var(--text);
+			border: 1px solid rgba(148, 163, 184, 0.18);
+		}
+
+		.button-dark {
+			background: rgba(15, 23, 42, 0.84);
+			color: #dbeafe;
+			border: 1px solid rgba(148, 163, 184, 0.16);
+		}
+
+		.route-list {
+			margin-top: 24px;
+			padding: 16px;
+			border-radius: 16px;
+			border: 1px solid rgba(148, 163, 184, 0.16);
+			background: rgba(2, 6, 23, 0.36);
+		}
+
+		.route-list h3 {
+			margin: 0 0 12px;
+			font-size: 1rem;
+			color: #d6e0ef;
+		}
+
+		.route-list ul {
+			margin: 0;
+			padding-left: 18px;
+			color: var(--muted);
+			line-height: 1.8;
+		}
+
+		.form-panel {
+			padding: 48px;
+			border-left: 1px solid var(--panel-border);
+			background: rgba(15, 23, 42, 0.56);
+		}
+
+		.form-panel h2 {
+			margin: 0 0 8px;
+			font-size: 1.7rem;
+		}
+
+		.form-panel p {
+			margin: 0 0 22px;
+			color: var(--muted);
+			line-height: 1.6;
+		}
+
+		.message {
+			margin: 0 0 18px;
+			padding: 12px 14px;
+			border-radius: 12px;
+			background: rgba(245, 158, 11, 0.12);
+			color: #fde68a;
+			border: 1px solid rgba(245, 158, 11, 0.18);
+		}
+
+		.field {
+			margin-bottom: 16px;
+		}
+
+		label {
+			display: block;
+			margin-bottom: 8px;
+			color: #dbeafe;
+			font-size: 0.95rem;
+		}
+
+		input {
+			width: 100%;
+			padding: 14px 16px;
+			border-radius: 14px;
+			border: 1px solid rgba(148, 163, 184, 0.22);
+			background: rgba(15, 23, 42, 0.9);
+			color: var(--text);
+			outline: none;
+		}
+
+		input:focus {
+			border-color: rgba(245, 158, 11, 0.8);
+			box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12);
+		}
+
+		.form-actions {
+			display: flex;
+			gap: 8px;
+			margin-top: 18px;
+			align-items: center;
+			flex-wrap: nowrap;
+		}
+
+		.links {
+			margin-top: 20px;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px 16px;
+			font-size: 0.95rem;
+		}
+
+		.links a {
+			color: #fde68a;
+			text-decoration: none;
+		}
+
+		.links a:hover {
+			text-decoration: underline;
+		}
+
+		@media (max-width: 840px) {
+			.card {
+				grid-template-columns: 1fr;
+			}
+
+			.form-panel {
+				border-left: 0;
+				border-top: 1px solid var(--panel-border);
+			}
+		}
+
+		@media (max-width: 640px) {
+			.hero,
+			.form-panel {
+				padding: 28px;
+			}
+
+			.form-actions { flex-direction: column; gap: 12px; }
+
+			.button {
+				width: 100%;
+			}
+		}
+	&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+	&lt;main class=&quot;card&quot;&gt;
+		&lt;section class=&quot;hero&quot;&gt;
+			&lt;span class=&quot;eyebrow&quot;&gt;Create your account&lt;/span&gt;
+			&lt;h1&gt;Sign up&lt;/h1&gt;
+			&lt;p class=&quot;lead&quot;&gt;
+				Create a new login, then use the sign-in page to reach the dashboard.
+			&lt;/p&gt;
+
+		&lt;/section&gt;
+
+		&lt;section class=&quot;form-panel&quot;&gt;
+			&lt;h2&gt;Create account&lt;/h2&gt;
+			&lt;p&gt;Enter the details that will be saved for sign-in.&lt;/p&gt;
+
+			&lt;% if (typeof msg !== &apos;undefined&apos; &amp;&amp; msg) { %&gt;
+				&lt;div class=&quot;message&quot;&gt;&lt;%= msg %&gt;&lt;/div&gt;
+			&lt;% } %&gt;
+
+			&lt;form action=&quot;/signUp&quot; method=&quot;post&quot;&gt;
+				&lt;div class=&quot;field&quot;&gt;
+					&lt;label for=&quot;emailID&quot;&gt;Email ID&lt;/label&gt;
+					&lt;input type=&quot;email&quot; id=&quot;emailID&quot; name=&quot;emailID&quot; placeholder=&quot;name@example.com&quot; required&gt;
+				&lt;/div&gt;
+
+				&lt;div class=&quot;field&quot;&gt;
+					&lt;label for=&quot;password&quot;&gt;Password&lt;/label&gt;
+					&lt;input type=&quot;password&quot; id=&quot;password&quot; name=&quot;password&quot; placeholder=&quot;Create a password&quot; required&gt;
+				&lt;/div&gt;
+
+				&lt;div class=&quot;field&quot;&gt;
+					&lt;label for=&quot;confirmPassword&quot;&gt;Confirm Password&lt;/label&gt;
+					&lt;input type=&quot;password&quot; id=&quot;confirmPassword&quot; name=&quot;confirmPassword&quot; placeholder=&quot;Repeat your password&quot; required&gt;
+				&lt;/div&gt;
+
+				&lt;div class=&quot;field&quot;&gt;
+					&lt;label for=&quot;adminCode&quot;&gt;Admin Code&lt;/label&gt;
+					&lt;input type=&quot;text&quot; id=&quot;adminCode&quot; name=&quot;adminCode&quot; placeholder=&quot;Enter admin code&quot; required&gt;
+				&lt;/div&gt;
+
+				&lt;div class=&quot;form-actions&quot;&gt;
+					&lt;button class=&quot;button button-primary&quot; type=&quot;submit&quot;&gt;Sign Up&lt;/button&gt;
+					&lt;a class=&quot;button button-secondary&quot; href=&quot;/&quot;&gt;I already have an account&lt;/a&gt;
+				&lt;/div&gt;
+			&lt;/form&gt;
+
+		&lt;/section&gt;
+	&lt;/main&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</pre></div>
+<div class='file'><h2>views\updateEmployee.ejs</h2><pre>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+    &lt;title&gt;Update Employee&lt;/title&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f4f7fb;
+            color: #0f172a;
+        }
+        .page {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 16px;
+            color: #0ea5e9;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .form-grid {
+            display: grid;
+            gap: 14px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        button,
+        .button-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        button[type=&quot;submit&quot;] {
+            background: #38bdf8;
+            color: #00111f;
+        }
+        .button-link {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+        .notice {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            background: #f8fafc;
+            border-left: 4px solid #0ea5e9;
+            border-radius: 12px;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class=&quot;page&quot;&gt;
+        &lt;a class=&quot;back-link&quot; href=&quot;/api/dashboard&quot;&gt;Back to Dashboard&lt;/a&gt;
+        &lt;div class=&quot;card&quot;&gt;
+            &lt;h1 style=&quot;margin-top:0;&quot;&gt;Update Employee Details&lt;/h1&gt;
+            &lt;% if (typeof msg !== &apos;undefined&apos; &amp;&amp; msg) { %&gt;
+                &lt;div class=&quot;notice&quot;&gt;&lt;strong&gt;&lt;%= msg %&gt;&lt;/strong&gt;&lt;/div&gt;
+            &lt;% } %&gt;
+
+            &lt;% if (typeof employee !== &apos;undefined&apos; &amp;&amp; employee &amp;&amp; employee.id) { %&gt;
+                &lt;form class=&quot;form-grid&quot; action=&quot;/api/updateEmployee/&lt;%= employee.id %&gt;&quot; method=&quot;POST&quot;&gt;
+                    &lt;div&gt;
+                        &lt;label for=&quot;name&quot;&gt;Name:&lt;/label&gt;
+                        &lt;input type=&quot;text&quot; id=&quot;name&quot; name=&quot;name&quot; value=&quot;&lt;%= employee.name %&gt;&quot; placeholder=&quot;Lastname, Firstname&quot; required&gt;
+                    &lt;/div&gt;
+
+                    &lt;div&gt;
+                        &lt;label for=&quot;email&quot;&gt;Email:&lt;/label&gt;
+                        &lt;input type=&quot;email&quot; id=&quot;email&quot; name=&quot;email&quot; value=&quot;&lt;%= employee.email %&gt;&quot; required&gt;
+                    &lt;/div&gt;
+
+                    &lt;div&gt;
+                        &lt;label for=&quot;designation&quot;&gt;Designation:&lt;/label&gt;
+                        &lt;input type=&quot;text&quot; id=&quot;designation&quot; name=&quot;designation&quot; value=&quot;&lt;%= employee.designation %&gt;&quot; required&gt;
+                    &lt;/div&gt;
+
+                    &lt;div&gt;
+                        &lt;label for=&quot;contact&quot;&gt;Contact:&lt;/label&gt;
+                        &lt;input type=&quot;text&quot; id=&quot;contact&quot; name=&quot;contact&quot; value=&quot;&lt;%= employee.contact %&gt;&quot; required&gt;
+                    &lt;/div&gt;
+
+                    &lt;div&gt;
+                        &lt;label for=&quot;department&quot;&gt;Department:&lt;/label&gt;
+                        &lt;input type=&quot;text&quot; id=&quot;department&quot; name=&quot;department&quot; value=&quot;&lt;%= employee.department %&gt;&quot; required&gt;
+                    &lt;/div&gt;
+
+                    &lt;div&gt;
+                        &lt;label for=&quot;joiningDate&quot;&gt;Joining Date:&lt;/label&gt;
+                        &lt;input type=&quot;date&quot; id=&quot;joiningDate&quot; name=&quot;joiningDate&quot; value=&quot;&lt;%= employee.joiningDate %&gt;&quot; required&gt;
+                    &lt;/div&gt;
+
+                    &lt;div&gt;
+                        &lt;label for=&quot;location&quot;&gt;Location:&lt;/label&gt;
+                        &lt;input type=&quot;text&quot; id=&quot;location&quot; name=&quot;location&quot; value=&quot;&lt;%= employee.location %&gt;&quot; required&gt;
+                    &lt;/div&gt;
+
+                    &lt;div class=&quot;actions&quot;&gt;
+                        &lt;button type=&quot;submit&quot;&gt;Update Employee&lt;/button&gt;
+                        &lt;a class=&quot;button-link&quot; href=&quot;/api/dashboard&quot;&gt;Cancel&lt;/a&gt;
+                    &lt;/div&gt;
+                &lt;/form&gt;
+            &lt;% } else { %&gt;
+                &lt;p&gt;Employee not found. &lt;a href=&quot;/api/dashboard&quot;&gt;Go back to dashboard&lt;/a&gt;&lt;/p&gt;
+            &lt;% } %&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre></div>
+<div class='file'><h2>views\viewEmployee.ejs</h2><pre>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+    &lt;title&gt;View Employee&lt;/title&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f4f7fb;
+        }
+        .container {
+            max-width: 600px;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0f172a;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .label {
+            font-weight: bold;
+            color: #0f172a;
+        }
+        .value {
+            color: #475569;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        a {
+            padding: 10px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+        }
+        .edit {
+            background: #38bdf8;
+            color: #00111f;
+        }
+        .delete {
+            background: #f87171;
+            color: #00111f;
+        }
+        .back {
+            background: #e5e7eb;
+            color: #1f2937;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class=&quot;container&quot;&gt;
+        &lt;h1&gt;Employee Details&lt;/h1&gt;
+        &lt;% if (typeof msg !== &apos;undefined&apos; &amp;&amp; msg) { %&gt;
+            &lt;p style=&quot;color: #dc2626;&quot;&gt;&lt;strong&gt;&lt;%= msg %&gt;&lt;/strong&gt;&lt;/p&gt;
+        &lt;% } %&gt;
+
+        &lt;% if (typeof employee !== &apos;undefined&apos; &amp;&amp; employee &amp;&amp; employee.id) { %&gt;
+            &lt;% const reversedName = employee.name.split(&apos;, &apos;).reverse().join(&apos; &apos;); %&gt;
+            &lt;div class=&quot;detail-row&quot;&gt;
+                &lt;span class=&quot;label&quot;&gt;ID:&lt;/span&gt;
+                &lt;span class=&quot;value&quot;&gt;&lt;%= employee.id %&gt;&lt;/span&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;detail-row&quot;&gt;
+                &lt;span class=&quot;label&quot;&gt;Name:&lt;/span&gt;
+                &lt;span class=&quot;value&quot;&gt;&lt;%= reversedName %&gt;&lt;/span&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;detail-row&quot;&gt;
+                &lt;span class=&quot;label&quot;&gt;Email:&lt;/span&gt;
+                &lt;span class=&quot;value&quot;&gt;&lt;%= employee.email %&gt;&lt;/span&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;detail-row&quot;&gt;
+                &lt;span class=&quot;label&quot;&gt;Designation:&lt;/span&gt;
+                &lt;span class=&quot;value&quot;&gt;&lt;%= employee.designation %&gt;&lt;/span&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;detail-row&quot;&gt;
+                &lt;span class=&quot;label&quot;&gt;Contact:&lt;/span&gt;
+                &lt;span class=&quot;value&quot;&gt;&lt;%= employee.contact %&gt;&lt;/span&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;detail-row&quot;&gt;
+                &lt;span class=&quot;label&quot;&gt;Department:&lt;/span&gt;
+                &lt;span class=&quot;value&quot;&gt;&lt;%= employee.department %&gt;&lt;/span&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;detail-row&quot;&gt;
+                &lt;span class=&quot;label&quot;&gt;Joining Date:&lt;/span&gt;
+                &lt;span class=&quot;value&quot;&gt;&lt;%= employee.joiningDate %&gt;&lt;/span&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;detail-row&quot;&gt;
+                &lt;span class=&quot;label&quot;&gt;Location:&lt;/span&gt;
+                &lt;span class=&quot;value&quot;&gt;&lt;%= employee.location %&gt;&lt;/span&gt;
+            &lt;/div&gt;
+
+            &lt;div class=&quot;actions&quot;&gt;
+                &lt;a href=&quot;/api/updateEmployee/&lt;%= employee.id %&gt;&quot; class=&quot;edit&quot;&gt;Edit&lt;/a&gt;
+                &lt;a href=&quot;/api/deleteEmployee/&lt;%= employee.id %&gt;&quot; class=&quot;delete&quot;&gt;Delete&lt;/a&gt;
+                &lt;a href=&quot;/api/dashboard&quot; class=&quot;back&quot;&gt;Back to Dashboard&lt;/a&gt;
+            &lt;/div&gt;
+        &lt;% } else { %&gt;
+            &lt;p&gt;Employee not found. &lt;a href=&quot;/api/dashboard&quot;&gt;Go back to dashboard&lt;/a&gt;&lt;/p&gt;
+        &lt;% } %&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre></div>
+  </div>
+</body>
+</html>

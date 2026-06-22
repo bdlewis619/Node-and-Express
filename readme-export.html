@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>README Export</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f4f7fb;
+      color: #0f172a;
+      font-family: Arial, sans-serif;
+    }
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 28px 30px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      line-height: 1.65;
+    }
+    h1, h2, h3 {
+      color: #0f172a;
+      line-height: 1.2;
+    }
+    h1 {
+      margin-top: 0;
+      margin-bottom: 18px;
+      font-size: 30px;
+    }
+    h2 {
+      margin-top: 28px;
+      margin-bottom: 10px;
+      font-size: 22px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 8px;
+    }
+    h3 {
+      margin-top: 18px;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+    p, li {
+      font-size: 14px;
+      color: #1e293b;
+    }
+    ul, ol {
+      padding-left: 22px;
+      margin-top: 8px;
+      margin-bottom: 12px;
+    }
+    .note {
+      margin-top: 24px;
+      padding: 14px 16px;
+      border-left: 4px solid #0ea5e9;
+      background: #f8fafc;
+      border-radius: 12px;
+    }
+    @media print {
+      body {
+        background: #ffffff;
+      }
+      .page {
+        max-width: none;
+        padding: 0;
+      }
+      .card {
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+      }
+      h2 {
+        break-after: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="card">
+      <h1>Node and Express Login App</h1>
+
+      <h2>Overview</h2>
+      <p>This is a small Node.js and Express application for employee management with a simple authentication flow. It lets users sign up, sign in, view an employee dashboard, inspect individual employee records, and perform basic create, update, and delete actions.</p>
+      <p>The app is designed as a lightweight demo project. Instead of using a database, it stores users and employee records in local JSON files, which keeps the setup simple and makes the project easy to run in a classroom, portfolio, or prototype environment.</p>
+
+      <h2>Utility</h2>
+      <p>The app is useful as a compact example of how to build a full web workflow with Express and server-side rendering. It demonstrates:</p>
+      <ul>
+        <li>User registration and login</li>
+        <li>Password hashing and verification</li>
+        <li>Employee listing with filtering and sorting</li>
+        <li>Employee detail views</li>
+        <li>Add, edit, and delete forms</li>
+        <li>Simple file-based persistence</li>
+      </ul>
+      <p>Because the data is stored in JSON files, the project is easy to understand and quick to start, while still showing the main patterns used in real CRUD applications.</p>
+
+      <h2>User Experience</h2>
+      <p>The interface is focused on clarity and speed.</p>
+      <ul>
+        <li>The login and sign-up pages use a polished card-based layout with strong contrast and clear form fields.</li>
+        <li>The dashboard presents employees in a table with search, filter, and sort controls.</li>
+        <li>Each employee row includes direct actions for viewing, editing, and deleting.</li>
+        <li>The employee detail page summarizes one record at a time and provides action buttons for the next step.</li>
+        <li>The add and update pages use structured forms with consistent spacing and a shared visual style.</li>
+        <li>The delete page adds a warning and confirmation step so the user can review the record before removal.</li>
+      </ul>
+      <p>Overall, the UX is simple and task-oriented, with most interactions kept to one or two clicks.</p>
+
+      <h2>Technologies Used</h2>
+      <p>The application uses the following technologies:</p>
+      <ul>
+        <li>Node.js: runtime environment for the server</li>
+        <li>Express: routing, request handling, and middleware</li>
+        <li>EJS: server-side templating for rendering pages</li>
+        <li>bcryptjs: password hashing and password verification</li>
+        <li>fs: built-in Node module for reading and writing JSON files</li>
+        <li>path: built-in Node module for safe file path handling</li>
+        <li>nodemon: development tool for auto-restarting the server during changes</li>
+        <li>HTML and CSS: used inside EJS templates for page layout and styling</li>
+      </ul>
+
+      <h2>Internal Structure</h2>
+      <p>The project has a very small and direct structure:</p>
+      <ul>
+        <li>app.js: main server file, route definitions, data helpers, and business logic</li>
+        <li>employees.json: local employee data store</li>
+        <li>logins.json: local user credential store</li>
+        <li>views/: EJS templates for the UI</li>
+      </ul>
+
+      <h3>View Templates</h3>
+      <ul>
+        <li>login.ejs: sign-in screen</li>
+        <li>signUp.ejs: registration screen</li>
+        <li>dashboard.ejs: employee dashboard with filters, sorting, and actions</li>
+        <li>viewEmployee.ejs: single employee detail page</li>
+        <li>addEmployee.ejs: employee creation form</li>
+        <li>updateEmployee.ejs: employee update form</li>
+        <li>deleteEmployee.ejs: delete confirmation screen</li>
+      </ul>
+
+      <h2>Data Flow</h2>
+      <p>The app follows a straightforward server-rendered flow:</p>
+      <ol>
+        <li>A user opens the login page or sign-up page.</li>
+        <li>Credentials are checked against logins.json using bcrypt hashing.</li>
+        <li>After login, the dashboard loads employee data from employees.json.</li>
+        <li>The dashboard applies search, filter, and sort logic on the server.</li>
+        <li>Create, update, and delete actions modify the employee array and write it back to the JSON file.</li>
+        <li>The user is redirected back to the dashboard with a success message.</li>
+      </ol>
+
+      <h2>Notes</h2>
+      <ul>
+        <li>The app uses a default admin code for sign-up, configurable through the ADMIN_CODE environment variable.</li>
+        <li>Employee names are stored in Lastname, Firstname format.</li>
+        <li>This project is best suited for demos, training, and lightweight internal tools rather than production use.</li>
+      </ul>
+
+      <div class="note">
+        This export is intended as a printable README snapshot of the current project description.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

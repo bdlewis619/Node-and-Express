@@ -4,41 +4,139 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Update Employee</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f4f7fb;
+            color: #0f172a;
+        }
+        .page {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 16px;
+            color: #0ea5e9;
+            text-decoration: none;
+            font-weight: 700;
+        }
+        .form-grid {
+            display: grid;
+            gap: 14px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        button,
+        .button-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        button[type="submit"] {
+            background: #38bdf8;
+            color: #00111f;
+        }
+        .button-link {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+        .notice {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            background: #f8fafc;
+            border-left: 4px solid #0ea5e9;
+            border-radius: 12px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Update Employee Details</h1>
-    <% if (typeof msg !== 'undefined' && msg) { %>
-        <p><strong><%= msg %></strong></p>
-    <% } %>
+    <div class="page">
+        <a class="back-link" href="/api/dashboard">Back to Dashboard</a>
+        <div class="card">
+            <h1 style="margin-top:0;">Update Employee Details</h1>
+            <% if (typeof msg !== 'undefined' && msg) { %>
+                <div class="notice"><strong><%= msg %></strong></div>
+            <% } %>
 
-    <% if (typeof employee !== 'undefined' && employee && employee.id) { %>
-        <form action="/api/updateEmployee/<%= employee.id %>" method="POST">
-            <label for="name">Name:</label><br>
-            <input type="text" id="name" name="name" value="<%= employee.name %>" required><br><br>
+            <% if (typeof employee !== 'undefined' && employee && employee.id) { %>
+                <form class="form-grid" action="/api/updateEmployee/<%= employee.id %>" method="POST">
+                    <div>
+                        <label for="name">Name:</label>
+                        <input type="text" id="name" name="name" value="<%= employee.name %>" placeholder="Lastname, Firstname" required>
+                    </div>
 
-            <label for="email">Email:</label><br>
-            <input type="email" id="email" name="email" value="<%= employee.email %>" required><br><br>
+                    <div>
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" name="email" value="<%= employee.email %>" required>
+                    </div>
 
-            <label for="designation">Designation:</label><br>
-            <input type="text" id="designation" name="designation" value="<%= employee.designation %>" required><br><br>
+                    <div>
+                        <label for="designation">Designation:</label>
+                        <input type="text" id="designation" name="designation" value="<%= employee.designation %>" required>
+                    </div>
 
-            <label for="contact">Contact:</label><br>
-            <input type="text" id="contact" name="contact" value="<%= employee.contact %>" required><br><br>
+                    <div>
+                        <label for="contact">Contact:</label>
+                        <input type="text" id="contact" name="contact" value="<%= employee.contact %>" required>
+                    </div>
 
-            <label for="department">Department:</label><br>
-            <input type="text" id="department" name="department" value="<%= employee.department %>" required><br><br>
+                    <div>
+                        <label for="department">Department:</label>
+                        <input type="text" id="department" name="department" value="<%= employee.department %>" required>
+                    </div>
 
-            <label for="joiningDate">Joining Date:</label><br>
-            <input type="date" id="joiningDate" name="joiningDate" value="<%= employee.joiningDate %>" required><br><br>
+                    <div>
+                        <label for="joiningDate">Joining Date:</label>
+                        <input type="date" id="joiningDate" name="joiningDate" value="<%= employee.joiningDate %>" required>
+                    </div>
 
-            <label for="location">Location:</label><br>
-            <input type="text" id="location" name="location" value="<%= employee.location %>" required><br><br>
+                    <div>
+                        <label for="location">Location:</label>
+                        <input type="text" id="location" name="location" value="<%= employee.location %>" required>
+                    </div>
 
-            <button type="submit">Update Employee</button>
-            <a href="/api/dashboard"><button type="button">Cancel</button></a>
-        </form>
-    <% } else { %>
-        <p>Employee not found. <a href="/api/dashboard">Go back to dashboard</a></p>
-    <% } %>
+                    <div class="actions">
+                        <button type="submit">Update Employee</button>
+                        <a class="button-link" href="/api/dashboard">Cancel</a>
+                    </div>
+                </form>
+            <% } else { %>
+                <p>Employee not found. <a href="/api/dashboard">Go back to dashboard</a></p>
+            <% } %>
+        </div>
+    </div>
 </body>
 </html>
